@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+/* Design tokens taken from the Figma exports in Design/ */
+@theme {
+  --color-espresso: #351c0f;
+  --color-pill: #e8e8e8;
+  --color-ink: #000000;
+  --color-paper: #ffffff;
+
+  --font-display: var(--font-jost), "Futura", system-ui, sans-serif;
+  --font-body: var(--font-nunito-sans), "Avenir", system-ui, sans-serif;
+  --font-script: var(--font-script-logo), cursive;
+
+  --radius-card: 2rem;
+  --radius-image: 2.5rem;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+}
