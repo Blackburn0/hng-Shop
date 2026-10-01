@@ -233,35 +233,68 @@ email_log       id · order_id · type · provider_message_id · status · creat
   - `X-Request-Id` generated, kept or replaced as expected; the JSON log line carries `requestId` and `traceId`
   - 120 requests got 400, then 429 with `Retry-After: 46`; a different IP was unaffected
   - 20 KB PUT → 413; 70 KB webhook → 413
-- [ ] Open a PR into `main`. Needs a GitHub remote. Each phase is on its own branch, stacked on the one before: `feat/scaffold` → `feat/database` → `feat/storefront` → `feat/google-auth` → `feat/checkout` → `feat/emails` → `feat/hardening`.
+- [x] Merged into `main` locally (fast-forward, all 8 phase commits). Scanned the whole git history for secrets: only `.env.example` was ever committed. Commit author switched to the GitHub no-reply address before the first push. Pushed to https://github.com/Blackburn0/hng-Shop (public). From now on, changes go to `main` through PRs.
 
-### Phase 9 — Deploy to Vercel (so the group can test)
-Each deploy step needs your go-ahead first (AGENTS.md).
-- [ ] **(you)** Create a Vercel account and import the GitHub repo, or approve deploying with the Vercel CLI
-- [ ] Add the environment variables in Vercel → Project → Settings → Environment Variables (the same names as `.env.example`), with `NEXT_PUBLIC_SITE_URL` set to the Vercel URL
-- [ ] **(you)** Google Cloud → Clients → Coffee Shop web → **Authorized JavaScript origins**: add `https://<app>.vercel.app`
-- [ ] **(you)** Supabase → Authentication → URL Configuration: add `https://<app>.vercel.app/**` to Redirect URLs, and set Site URL to the Vercel URL
-- [ ] **(you)** Paystack → Settings → API Keys & Webhooks → Test Webhook URL: `https://<app>.vercel.app/api/v1/payments/paystack/webhook`
-- [ ] **(you)** Mailgun sandbox only delivers to authorised recipients, so group testers either get added there or you verify a real sending domain
-- [ ] Smoke-test the deployed site: `/health`, sign in, add to cart, a card test payment, cash on delivery, the confirmation email
+### Phase 9 — Deploy to Vercel ✅
+Live at **https://hng-shop-oztn.vercel.app**. Every push to `main` redeploys automatically.
+- [x] **(you)** Vercel project `hng-shop-oztn` imported from GitHub
+- [x] **(you)** 10 environment variables added (Production and Preview):
+  - The three `NEXT_PUBLIC_*` values are stored as **Config**. They're built into the browser bundle on purpose.
+  - Keys (service role, Paystack, Mailgun) are stored as **Secret**.
+  - `NEXT_PUBLIC_SITE_URL=https://hng-shop-oztn.vercel.app`. (`hng-shop.vercel.app` belongs to another project.)
+- [x] **(you)** Google Cloud: Authorized JavaScript origin `https://hng-shop-oztn.vercel.app`
+- [x] **(you)** Supabase: Redirect URL `https://hng-shop-oztn.vercel.app/**`
+- [x] **(you)** Paystack Test Webhook URL `https://hng-shop-oztn.vercel.app/api/v1/payments/paystack/webhook`. The first card payment had no webhook because this box was still empty.
+- [x] Checked on the live site:
+  - `/health` and `/ready` 200 (database ok); products 200 with rate-limit headers; 404 for an unknown product
+  - 401 for the cart and orders when signed out; 401 for a fake webhook signature
+  - All pages and images 200; `/orders/…` redirects to sign-in
+  - `/auth/login` → Supabase → Google, with the callback on the live address
+  - A correctly signed test webhook got 200 and was stored (row deleted afterwards)
+- [x] End to end on the live site (you, then checked in the database):
+  - Card #E4205FA3: ₦11,000, paid, email sent
+  - Cash #0EC525E9: ₦7,000, cash on delivery, email sent
+  - Card #9B98F653: ₦4,200, paid. Paystack's `charge.success` webhook arrived 15 s later, and still only one email was sent.
+
+### Phase 10 — Open to everyone with the link
+Everything already works for anyone, except emails, which only reach the Mailgun sandbox's authorised recipients.
+- [ ] **(you)** Google Auth Platform → **Audience**: confirm it says **In production** (not Testing)
+- [ ] **(you)** Supabase → Authentication → URL Configuration → **Site URL**: change `http://localhost:3000` to `https://hng-shop-oztn.vercel.app`
+- [ ] **(you)** Verify your own domain in Mailgun, so confirmation emails reach anyone (and land in inboxes, not spam):
+  1. Get a domain if you don't have one (Vercel → Domains → Buy, Cloudflare or Namecheap; about $10–15 a year).
+  2. Mailgun → **Send → Sending → Domains → Add new domain**: use a subdomain such as `mg.yourname.com`, region **US**.
+  3. Add the DNS records Mailgun shows (SPF TXT, DKIM TXT, MX, optional tracking CNAME), plus DMARC: TXT at `_dmarc.mg` with value `v=DMARC1; p=none;`
+  4. Mailgun → **Verify DNS settings** (minutes to a few hours). Mailgun may also ask you to confirm your account.
+  5. Create a **sending key** for the new domain.
+  6. In Vercel and `.env.local`, set `MAILGUN_DOMAIN`, `MAILGUN_FROM="Coffee Shop <orders@mg.yourname.com>"` and `MAILGUN_API_KEY` (the new key). Then **Redeploy**.
+- [ ] Send a test to an address outside the old authorised list and confirm delivery (Claude, after the domain is verified)
+- [ ] Optional: a Vercel **Firewall** rate-limit rule for a hard limit across all instances (the in-app limit is per instance)
+
+**Free plan limits:**
+- Mailgun: about 100 emails a day
+- Supabase: pauses after about a week with no activity (resume it from the dashboard; the data is kept)
+- Paystack: stays in **test mode** (test cards, no real money). Live payments would need Paystack's compliance steps.
+
+**Optional follow-ups:**
+- Check API responses against the OpenAPI schema in the tests (needs a validator package, so approval)
+- Remove the unused `form-data` dependency (approval)
+- Delete the old local `feat/*` branches (already in `main`)
 
 ---
 
 ## 6. Setup checklist (you)
 
 - [x] Supabase project `hng-shop` created → URL `https://rnsrxyjvyvyugbplcxbu.supabase.co`
-- [ ] Copy `.env.example` to `.env.local` and fill in the keys. **Don't paste keys into chat.**
-- [ ] Supabase → Authentication → Providers → **Google**: paste the Client ID and Secret from Google Cloud Console
+- [x] `.env.local` filled in with real test keys (never committed)
+- [x] Supabase → Authentication → Providers → **Google** turned on, with the Client ID and Secret from Google Cloud Console
   - Google redirect URI: `https://rnsrxyjvyvyugbplcxbu.supabase.co/auth/v1/callback`
-  - Supabase Site URL: `http://localhost:3000`; Redirect URLs: `http://localhost:3000/auth/callback`
-- [ ] **Paystack**: sign up → Settings → API Keys & Webhooks → copy the **test** secret key
-  - Webhook URL: this only works through a public tunnel (for example `cloudflared tunnel --url http://localhost:3000`). Until then, the verify endpoint handles payment confirmation during local testing.
-- [ ] **Mailgun**: sign up → copy the sandbox domain and API key → add your inbox as an authorised recipient
+  - Redirect URLs: `http://localhost:3000/**` and `https://hng-shop-oztn.vercel.app/**`
+- [x] **Paystack**: test secret key in `.env.local` and Vercel; Test Webhook URL set to the live site
+- [x] **Mailgun**: sandbox domain, sending key and authorised recipient set. A domain of your own is still to do (Phase 10).
 
 ---
 
 ## 7. Waiting on you
 
-1. ~~Approve installing the packages~~ ✅ approved
-2. Replace the PLACEHOLDER values in `.env.local` with your real test keys
-3. Push the migrations (Phase 2, the "(you)" step)
+1. Phase 10: confirm Google is **In production**, change the Supabase **Site URL**, and verify a domain in Mailgun
+2. Review and merge the PR for this plan update
