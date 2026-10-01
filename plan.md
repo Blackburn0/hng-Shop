@@ -133,8 +133,8 @@ email_log       id · order_id · type · provider_message_id · status · creat
 ```
 
 - **Row Level Security** is on for every table. `products` can be read by anyone. Users can read and write only their own `cart_items`, and read only their own `orders` and `order_items`. Writes to orders, payments and emails go through the server using the service role.
-- Every migration has a matching **down** script in `supabase/migrations/down/`.
-- `supabase/seed.sql` adds the three products from the design (Americano, Cappuccino, Yule Log Cake) plus a few more, with images in `public/products/`.
+- Every migration has a matching **down** script in `supabase/rollbacks/`. It's kept outside `migrations/` so the CLI never applies it by mistake.
+- The products are added by a migration (`…_seed_products.sql`), so `db push` loads them and running it again is safe. There are three products from the design (Americano ₦3,500, Cappuccino ₦4,200, Yule Log Cake ₦5,500), with images cut from the design into `public/products/`.
 
 ---
 
@@ -150,10 +150,11 @@ email_log       id · order_id · type · provider_message_id · status · creat
 - [x] `npm run dev` starts, `/health` returns 200, and lint, typecheck and tests pass
 
 ### Phase 2 — Database
-- [ ] Write the migration (tables, enums, RLS, profile trigger) and its down script
-- [ ] Write the seed data and add the product images
-- [ ] **(you)** Run `npx supabase db push` against `hng-shop`
-- [ ] Generate TypeScript types (`npm run db:types`)
+- [x] Write the migration (tables, enums, RLS, profile trigger) and its down script
+- [x] Write the product seed migration and add the product images
+- [x] Test up, down and up again, plus the constraints and RLS, on an in-memory Postgres (PGlite) with stand-ins for Supabase's auth: 26/26 checks pass
+- [ ] **(you)** `npx supabase login` → `npx supabase link --project-ref rnsrxyjvyvyugbplcxbu` → `npx supabase db push`
+- [ ] Generate TypeScript types (`npm run db:types`) after the push
 
 ### Phase 3 — Layout and static pages
 - [ ] Header (logo, Products, Checkout, sign-in / avatar), footer (logo, tagline, three pill buttons, ©)
@@ -207,4 +208,5 @@ email_log       id · order_id · type · provider_message_id · status · creat
 ## 7. Waiting on you
 
 1. ~~Approve installing the packages~~ ✅ approved
-2. Fill in `.env.local` so Phase 2 (database) can start
+2. Replace the PLACEHOLDER values in `.env.local` with your real test keys
+3. Push the migrations (Phase 2, the "(you)" step)
