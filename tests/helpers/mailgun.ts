@@ -3,7 +3,15 @@ import { http, HttpResponse } from "msw";
 // Fake Mailgun (third-party). Captures every message instead of sending it.
 const BASE = process.env.MAILGUN_API_URL ?? "https://api.mailgun.net";
 
-export type SentMail = { to: string; from: string; subject: string; html: string; text: string; tags: string[] };
+export type SentMail = {
+  to: string;
+  from: string;
+  subject: string;
+  html: string;
+  text: string;
+  tags: string[];
+  replyTo: string | null;
+};
 
 export const mailgun = {
   sent: [] as SentMail[],
@@ -69,6 +77,7 @@ export const mailgunHandlers = [
       html: String(form.get("html")),
       text: String(form.get("text")),
       tags: form.getAll("o:tag").map(String),
+      replyTo: form.has("h:Reply-To") ? String(form.get("h:Reply-To")) : null,
     });
     return HttpResponse.json({ id: `<test-${++seq}@mailgun.test>`, message: "Queued. Thank you." });
   }),

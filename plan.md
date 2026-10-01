@@ -266,10 +266,22 @@ Everything works for anyone. Emails go through Mailgun first. When the sandbox r
   - Tests: 24 new tests in `email-fallback.test.ts`, with nodemailer replaced by a stand-in. The suite never uses real Gmail credentials. Full suite 233/233, 91.8% line and 88.2% branch coverage. The email code: 98.0% line, 85.3% branch. `next build` passes.
   - Found while testing: `mailgun.js` reports a dropped connection as status 400 with an empty message. `isNetworkFailure()` now tells that apart from a real refusal.
   - Your App Password checked with an SMTP login that sends nothing: OK.
-- [ ] **(you)** Add `GMAIL_USER` and `GMAIL_APP_PASSWORD` (as **Secret**) in Vercel for Production and Preview, then redeploy
-- [ ] **(you)** Order on the live site with a Google account that is **not** a Mailgun authorised recipient, and check its inbox. Then Claude checks that `email_log` shows `gmail:`.
-- [ ] **(you)** Google Auth Platform → **Audience**: confirm it says **In production** (not Testing)
-- [ ] **(you)** Supabase → Authentication → URL Configuration → **Site URL**: change `http://localhost:3000` to `https://hng-shop-oztn.vercel.app`
+- [x] **(you)** `GMAIL_USER` and `GMAIL_APP_PASSWORD` added in Vercel as Secret (Production and Preview); PR #2 squash-merged, and production redeployed
+- [x] Live end-to-end with an account that is **not** a Mailgun authorised recipient: card order #C8BD1081, ₦3,500, **paid**, `charge.success` webhook received, email **sent via `gmail`**, and it arrived in the **inbox**
+- [x] Mailgun emails set **Reply-To** to the Gmail address when it's configured, so replying to any confirmation reaches a real mailbox (sandbox senders have none)
+- [x] **(you)** Supabase **Site URL** changed to `https://hng-shop-oztn.vercel.app`
+- [x] `/privacy` page added and linked from the footer. Google needs a privacy policy link before the app can be published.
+- [ ] **(you)** **Publish the Google app.** Audience still says **Testing**, so only listed test users can sign in; everyone else sees "Access blocked". The **Publish app** button stays greyed out until the **Branding** page is complete:
+  1. Google Auth Platform → **Branding**:
+     - App name `Coffee Shop`, and a user support email
+     - **No logo** (a logo triggers Google's brand verification, which takes days)
+     - App home page: `https://hng-shop-oztn.vercel.app`
+     - Privacy policy link: `https://hng-shop-oztn.vercel.app/privacy`
+     - Authorized domains: `hng-shop-oztn.vercel.app` and `rnsrxyjvyvyugbplcxbu.supabase.co`
+     - Developer contact email
+     - **Save**
+  2. Google Auth Platform → **Audience** → **Publish app** → **Confirm**. With only the `openid`, `email` and `profile` scopes, it goes live straight away.
+  3. Test sign-in with an account that isn't on the Test users list.
 - [ ] Optional now (the Gmail fallback covers delivery): verify your own domain in Mailgun, so emails come from your domain instead of Gmail:
   1. Get a domain if you don't have one (Vercel → Domains → Buy, Cloudflare or Namecheap; about $10–15 a year).
   2. Mailgun → **Send → Sending → Domains → Add new domain**: use a subdomain such as `mg.yourname.com`, region **US**.
@@ -306,5 +318,5 @@ Everything works for anyone. Emails go through Mailgun first. When the sandbox r
 
 ## 7. Waiting on you
 
-1. Phase 10: add the Gmail variables in Vercel and test with a non-authorised address; confirm Google is **In production**; change the Supabase **Site URL**
-2. Review and merge the PR for this plan update
+1. Merge the PR that adds `/privacy` (needed before the next step)
+2. Complete Google **Branding**, then **Publish app** (Phase 10). This is the last step before anyone can sign in.

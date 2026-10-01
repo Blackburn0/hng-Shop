@@ -136,7 +136,15 @@ describe("order confirmation delivery", () => {
 
     expect(mailgun.sent).toHaveLength(1);
     expect(gmail.sent).toEqual([]);
+    expect(mailgun.sent[0]!.replyTo).toBe(GMAIL_USER); // replies reach a real mailbox
     expect((await logRow(id)).provider_message_id).toMatch(/^mailgun:</);
+  });
+
+  it("sets no Reply-To on Mailgun emails when Gmail isn't configured", async () => {
+    vi.stubEnv("GMAIL_USER", "");
+    await cashOrder();
+
+    expect(mailgun.sent[0]!.replyTo).toBeNull();
   });
 
   it("falls back to Gmail when the Mailgun sandbox refuses the recipient", async () => {
