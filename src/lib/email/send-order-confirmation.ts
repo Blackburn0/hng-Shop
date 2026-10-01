@@ -3,6 +3,7 @@ import { sendEmail } from "@/lib/email/mailgun";
 import { publicEnv } from "@/lib/env";
 import { getOrder } from "@/lib/orders";
 import type { Db } from "@/lib/supabase/clients";
+import { log } from "@/lib/log";
 
 const TYPE = "order_confirmation";
 
@@ -35,17 +36,17 @@ export async function sendOrderConfirmation(admin: Db, orderId: string): Promise
         .update({ status: "sent", provider_message_id: messageId, error: null })
         .eq("order_id", orderId)
         .eq("type", TYPE);
-      console.info("confirmation email sent", { orderId });
+      log.info("confirmation email sent", { orderId });
       return "sent";
     } catch (err) {
       // Keep the reason short and free of personal data.
       const reason = err instanceof Error ? `${err.name}: ${err.message}`.slice(0, 300) : "unknown error";
       await admin.from("email_log").update({ status: "failed", error: reason }).eq("order_id", orderId).eq("type", TYPE);
-      console.error("confirmation email failed", { orderId, reason });
+      log.error("confirmation email failed", { orderId, reason });
       return "failed";
     }
   } catch (err) {
-    console.error("confirmation email bookkeeping failed", { orderId, code: (err as { code?: string }).code });
+    log.error("confirmation email bookkeeping failed", { orderId, code: (err as { code?: string }).code });
     return "failed";
   }
 }

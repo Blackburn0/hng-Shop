@@ -74,13 +74,36 @@ export const problems = {
     problem({ status: 409, type: "conflict", title: "Request conflicts with current state", detail, instance }),
   internal: (instance: string) =>
     problem({ status: 500, type: "internal-error", title: "Something went wrong", instance }),
+  tooLarge: (instance: string, maxBytes: number) =>
+    problem({
+      status: 413,
+      type: "payload-too-large",
+      title: "Payload too large",
+      detail: `Request bodies are limited to ${Math.round(maxBytes / 1024)} KB.`,
+      instance,
+    }),
 };
 
-/** Parse a JSON body; returns `undefined` when the body is missing or malformed. */
-export async function readJson(req: Request): Promise<{ ok: true; value: unknown } | { ok: false }> {
+const DEFAULT_MAX_JSON_BYTES = 16 * 1024;
+
+type JsonResult = { ok: true; value: unknown } | { ok: false; error: Response };
+
+/**
+ * Read and parse a JSON body, enforcing a size limit even when the client sent
+ * no Content-Length. On failure, `error` is the ready-made 400/413 response.
+ */
+export async function readJson(req: Request, maxBytes = DEFAULT_MAX_JSON_BYTES): Promise<JsonResult> {
+  const { pathname } = new URL(req.url);
+  let raw: string;
   try {
-    return { ok: true, value: await req.json() };
+    raw = await req.text();
   } catch {
-    return { ok: false };
+    return { ok: false, error: problems.malformedJson(pathname) };
+  }
+  if (Buffer.byteLength(raw) > maxBytes) return { ok: false, error: problems.tooLarge(pathname, maxBytes) };
+  try {
+    return { ok: true, value: JSON.parse(raw) };
+  } catch {
+    return { ok: false, error: problems.malformedJson(pathname) };
   }
 }

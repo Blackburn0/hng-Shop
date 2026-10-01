@@ -2,13 +2,16 @@ import { z } from "zod";
 import { getAuth } from "@/lib/auth";
 import { problems } from "@/lib/http/problem";
 import { getOrder } from "@/lib/orders";
+import { route } from "@/lib/http/route";
+import { LIMITS } from "@/lib/http/rate-limit";
+import { log } from "@/lib/log";
 
 export const dynamic = "force-dynamic";
 
 const params = z.object({ id: z.uuid("must be a UUID") });
 
 /** One of the caller's orders. Someone else's order is indistinguishable from a missing one (404). */
-export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
+export const GET = route({ rateLimit: { bucket: "orders.read", ...LIMITS.user } }, async (req: Request, ctx: { params: Promise<{ id: string }> }) => {
   const { pathname } = new URL(req.url);
   const auth = await getAuth(req);
   if (!auth) return problems.unauthorized(pathname);
@@ -21,7 +24,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
     if (!order) return problems.notFound(pathname, "No such order.");
     return Response.json(order, { headers: { "Cache-Control": "private, no-store" } });
   } catch (err) {
-    console.error("GET /api/v1/orders/[id] failed", err);
+    log.error("GET /api/v1/orders/[id] failed", { err });
     return problems.internal(pathname);
   }
-}
+});

@@ -5,6 +5,9 @@ import { getOrder, getOrderByReference } from "@/lib/orders";
 import { confirmPayment, markFailed } from "@/lib/payments";
 import { PaystackError, verifyTransaction } from "@/lib/paystack";
 import { createAdminClient } from "@/lib/supabase/clients";
+import { route } from "@/lib/http/route";
+import { LIMITS } from "@/lib/http/rate-limit";
+import { log } from "@/lib/log";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +19,7 @@ const PRIVATE = { "Cache-Control": "private, no-store" };
  * for the real outcome (the redirect alone proves nothing) and applies it.
  * Idempotent — the page polls it, and the webhook may get there first.
  */
-export async function GET(req: Request) {
+export const GET = route({ rateLimit: { bucket: "payments.verify", ...LIMITS.user } }, async (req: Request) => {
   const url = new URL(req.url);
   const auth = await getAuth(req);
   if (!auth) return problems.unauthorized(url.pathname);
@@ -35,7 +38,7 @@ export async function GET(req: Request) {
     tx = await verifyTransaction(reference);
   } catch (err) {
     if (!(err instanceof PaystackError)) throw err;
-    console.error("Paystack verify failed", { status: err.status });
+    log.error("Paystack verify failed", { status: err.status });
     return problem({
       status: 502,
       type: "payment-provider-unavailable",
@@ -61,4 +64,4 @@ export async function GET(req: Request) {
 
   // abandoned / ongoing / pending / queued: not finished yet.
   return Response.json({ status: "pending", order }, { headers: PRIVATE });
-}
+});

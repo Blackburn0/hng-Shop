@@ -235,6 +235,7 @@ describe("POST /api/v1/payments/paystack/webhook", () => {
   it("with verify racing the webhook, the order transitions exactly once", async () => {
     const { id, reference } = await cardOrder();
     paystack.verify.set(reference, { status: "success" });
+    vi.stubEnv("LOG_LEVEL", "info");
     const info = vi.spyOn(console, "info").mockImplementation(() => {});
 
     const [a, b] = await Promise.all([check(alice, reference), hook(chargeSuccess(reference))]);
@@ -242,7 +243,10 @@ describe("POST /api/v1/payments/paystack/webhook", () => {
     expect(a.status).toBe(200);
     expect(b.status).toBe(200);
     expect((await orderRow(id)).status).toBe("paid");
-    expect(info.mock.calls.filter(([msg]) => msg === "order paid")).toHaveLength(1);
+    // Logs are JSON lines (src/lib/log.ts): count the "order paid" entries.
+    const paid = info.mock.calls.map(([line]) => JSON.parse(String(line)) as { msg: string }).filter((l) => l.msg === "order paid");
+    expect(paid).toHaveLength(1);
     info.mockRestore();
+    vi.unstubAllEnvs();
   });
 });

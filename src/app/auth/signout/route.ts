@@ -1,11 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { problem } from "@/lib/http/problem";
 import { createRequestClient } from "@/lib/supabase/request";
+import { route } from "@/lib/http/route";
+import { LIMITS } from "@/lib/http/rate-limit";
 
 export const dynamic = "force-dynamic";
 
 /** Sign out (form POST from the header). Clears the session cookies. */
-export async function POST(req: NextRequest) {
+export const POST = route({ rateLimit: { bucket: "auth", ...LIMITS.auth } }, async (req: NextRequest) => {
   const url = new URL(req.url);
 
   // Cross-site form posts can't sign people out.
@@ -17,4 +19,4 @@ export async function POST(req: NextRequest) {
   const { client, applyCookies } = createRequestClient(req);
   await client.auth.signOut({ scope: "local" });
   return applyCookies(NextResponse.redirect(new URL("/", url.origin), 303));
-}
+});

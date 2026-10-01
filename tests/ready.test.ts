@@ -10,7 +10,7 @@ describe("GET /api/ready", () => {
   });
 
   it("returns 200 when the database is reachable", async () => {
-    const res = await GET();
+    const res = await GET(new Request("http://localhost:3000/api/ready"));
 
     expect(res.status).toBe(200);
     expect(res.headers.get("cache-control")).toBe("no-store");
@@ -21,7 +21,7 @@ describe("GET /api/ready", () => {
     // Port 9 (discard) on loopback: connection refused, fast.
     process.env.NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:9";
 
-    const res = await GET();
+    const res = await GET(new Request("http://localhost:3000/api/ready"));
 
     expect(res.status).toBe(503);
     expect(await res.json()).toEqual({ status: "unavailable", checks: { database: "error" } });

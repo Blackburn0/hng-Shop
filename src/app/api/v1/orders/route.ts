@@ -8,6 +8,9 @@ import { cursorParam, limitParam } from "@/lib/pagination";
 import { markFailed } from "@/lib/payments";
 import { initializeTransaction, newReference, PaystackError } from "@/lib/paystack";
 import { createAdminClient } from "@/lib/supabase/clients";
+import { route } from "@/lib/http/route";
+import { LIMITS } from "@/lib/http/rate-limit";
+import { log } from "@/lib/log";
 
 export const dynamic = "force-dynamic";
 
@@ -18,13 +21,13 @@ const PRIVATE = { "Cache-Control": "private, no-store" };
  * never the client. Card orders return a Paystack checkout URL; cash orders are
  * confirmed immediately.
  */
-export async function POST(req: Request) {
+export const POST = route({ rateLimit: { bucket: "orders.create", ...LIMITS.checkout } }, async (req: Request) => {
   const { pathname } = new URL(req.url);
   const auth = await getAuth(req);
   if (!auth) return problems.unauthorized(pathname);
 
   const json = await readJson(req);
-  if (!json.ok) return problems.malformedJson(pathname);
+  if (!json.ok) return json.error;
   const body = createOrderBody.safeParse(json.value);
   if (!body.success) return problems.validation(pathname, body.error);
 
@@ -57,7 +60,7 @@ export async function POST(req: Request) {
     if (dbHint(error) === "empty_cart") {
       return problems.conflict(pathname, "Your cart is empty — add something before checking out.");
     }
-    console.error("create_order failed", error.code);
+    log.error("create_order failed", { code: error.code });
     return problems.internal(pathname);
   }
 
@@ -83,7 +86,7 @@ export async function POST(req: Request) {
     );
   } catch (err) {
     if (!(err instanceof PaystackError)) throw err;
-    console.error("Paystack initialize failed", { orderId: order.id, status: err.status });
+    log.error("Paystack initialize failed", { orderId: order.id, status: err.status });
     await markFailed(admin, order.id);
     return problem({
       status: 502,
@@ -93,12 +96,12 @@ export async function POST(req: Request) {
       instance: pathname,
     });
   }
-}
+});
 
 const listQuery = z.object({ limit: limitParam, cursor: cursorParam(orderCursor).optional() });
 
 /** The caller's orders, newest first. */
-export async function GET(req: Request) {
+export const GET = route({ rateLimit: { bucket: "orders.read", ...LIMITS.user } }, async (req: Request) => {
   const url = new URL(req.url);
   const auth = await getAuth(req);
   if (!auth) return problems.unauthorized(url.pathname);
@@ -109,7 +112,7 @@ export async function GET(req: Request) {
   try {
     return Response.json(await listOrders(auth.db, auth.user.id, parsed.data), { headers: PRIVATE });
   } catch (err) {
-    console.error("GET /api/v1/orders failed", err);
+    log.error("GET /api/v1/orders failed", { err });
     return problems.internal(url.pathname);
   }
-}
+});

@@ -2,6 +2,7 @@ import { sendOrderConfirmation } from "@/lib/email/send-order-confirmation";
 import { dbHint } from "@/lib/orders";
 import type { PaystackTransaction } from "@/lib/paystack";
 import type { Db } from "@/lib/supabase/clients";
+import { log } from "@/lib/log";
 
 export type ConfirmResult =
   | { outcome: "paid"; orderId: string; transitioned: boolean }
@@ -22,14 +23,14 @@ export async function confirmPayment(admin: Db, tx: PaystackTransaction): Promis
   if (error) {
     const hint = dbHint(error);
     if (hint === "amount_mismatch" || hint === "order_not_found") {
-      console.error("payment not applied", { reference: tx.reference, reason: hint });
+      log.error("payment not applied", { reference: tx.reference, reason: hint });
       return { outcome: hint };
     }
     throw error;
   }
   const row = data[0]!;
   if (row.transitioned) {
-    console.info("order paid", { orderId: row.order_id });
+    log.info("order paid", { orderId: row.order_id });
     await sendOrderConfirmation(admin, row.order_id);
   }
   return { outcome: "paid", orderId: row.order_id, transitioned: row.transitioned };

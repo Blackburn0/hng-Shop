@@ -4,6 +4,8 @@ import { problem, problems } from "@/lib/http/problem";
 import { confirmPayment } from "@/lib/payments";
 import { isValidSignature } from "@/lib/paystack";
 import { createAdminClient } from "@/lib/supabase/clients";
+import { route } from "@/lib/http/route";
+import { log } from "@/lib/log";
 
 export const dynamic = "force-dynamic";
 
@@ -28,13 +30,13 @@ const event = z.object({
  * applies charge.success. Returns 200 for anything we've handled (or chosen to
  * ignore) so Paystack stops retrying; 5xx only for our own failures.
  */
-export async function POST(req: Request) {
+export const POST = route({ maxBodyBytes: MAX_BODY_BYTES }, async (req: Request) => {
   const { pathname } = new URL(req.url);
 
   const declared = Number(req.headers.get("content-length") ?? 0);
-  if (declared > MAX_BODY_BYTES) return tooLarge(pathname);
+  if (declared > MAX_BODY_BYTES) return problems.tooLarge(pathname, MAX_BODY_BYTES);
   const raw = await req.text();
-  if (Buffer.byteLength(raw) > MAX_BODY_BYTES) return tooLarge(pathname);
+  if (Buffer.byteLength(raw) > MAX_BODY_BYTES) return problems.tooLarge(pathname, MAX_BODY_BYTES);
 
   if (!isValidSignature(raw, req.headers.get("x-paystack-signature"))) {
     return problem({ status: 401, type: "invalid-signature", title: "Invalid webhook signature", instance: pathname });
@@ -59,7 +61,7 @@ export async function POST(req: Request) {
   });
   if (insertError) {
     if (insertError.code === "23505") return Response.json({ received: true, duplicate: true });
-    console.error("payment_events insert failed", insertError.code);
+    log.error("payment_events insert failed", { code: insertError.code });
     return problems.internal(pathname);
   }
 
@@ -75,8 +77,5 @@ export async function POST(req: Request) {
   }
 
   return Response.json({ received: true });
-}
+});
 
-function tooLarge(instance: string) {
-  return problem({ status: 413, type: "payload-too-large", title: "Payload too large", instance });
-}

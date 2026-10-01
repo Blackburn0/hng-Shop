@@ -221,12 +221,19 @@ email_log       id · order_id · type · provider_message_id · status · creat
 - [x] **(you)** Real email received for cash order #D1A6880B (landed in Gmail spam: expected for an unauthenticated sandbox domain). Fixed the phone number Gmail had hidden on the brown card.
 
 ### Phase 8 — Hardening and handover
-- [ ] Structured JSON logs with `X-Request-Id`, and no secrets or personal data in logs
-- [ ] Rate limiting on public endpoints, and limits on request body size
-- [ ] Complete `docs/openapi.yaml`; check responses against it in the tests
-- [ ] Coverage ≥ 80% · full test suite, lint and typecheck pass
-- [ ] Test by hand against the running server with curl: each endpoint's success and failure cases, plus a full Paystack test payment
-- [ ] Open a PR from `feat/scaffold` (and later branches) into `main`
+- [x] Structured JSON logs (`src/lib/log.ts`), one line per entry, each tagged with the request ID and the W3C `traceparent` trace ID. Emails, phone numbers, addresses, names, tokens and keys are blanked out, and errors are logged without stack traces. `LOG_LEVEL` controls how much is logged.
+- [x] `X-Request-Id` on every page and API response. A valid incoming ID is kept, anything else is replaced, and `src/proxy.ts` forwards the ID to the handler.
+- [x] `route()` wrapper (`src/lib/http/route.ts`) on all 14 route files. It writes the access log line, turns unhandled errors into a 500 with no internal details, and handles the next two items.
+- [x] Rate limiting kept in memory, per IP (your choice). Over the limit: 429, `Retry-After`, and `RateLimit-*` headers. Limits: products 120/min, cart/orders/verify 60/min, placing orders 10/min, sign-in 20/min. Webhook and health checks have no limit.
+- [x] Body size limits: 413 over 16 KB (the webhook allows 64 KB). Checked from `Content-Length` and again while reading the body.
+- [x] `docs/openapi.yaml` v0.4.0: every endpoint, 429 and 413 responses, request ID and rate-limit headers. Checked that it parses and every `$ref` resolves.
+- [ ] Automatically check API responses against the OpenAPI schema in the tests. This needs a validator package (new dependency, needs approval); optional.
+- [x] Full suite: 209/209 pass, 91.5% line and 87.9% branch coverage. New code in `src/lib/http`: 98.8% line, 98.1% branch. Lint, typecheck and `npm run build` pass.
+- [x] Tested against the running server:
+  - `X-Request-Id` generated, kept or replaced as expected; the JSON log line carries `requestId` and `traceId`
+  - 120 requests got 400, then 429 with `Retry-After: 46`; a different IP was unaffected
+  - 20 KB PUT → 413; 70 KB webhook → 413
+- [ ] Open a PR into `main`. Needs a GitHub remote. Each phase is on its own branch, stacked on the one before: `feat/scaffold` → `feat/database` → `feat/storefront` → `feat/google-auth` → `feat/checkout` → `feat/emails` → `feat/hardening`.
 
 ### Phase 9 — Deploy to Vercel (so the group can test)
 Each deploy step needs your go-ahead first (AGENTS.md).
