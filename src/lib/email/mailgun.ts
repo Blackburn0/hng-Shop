@@ -3,6 +3,16 @@ import { serverEnv } from "@/lib/env";
 
 type Message = { to: string; subject: string; html: string; text: string; tag: string };
 
+/** Node/axios network error codes, e.g. ECONNRESET, ETIMEDOUT, ECONNABORTED, ERR_NETWORK. */
+const NETWORK_ERROR_CODE = /^(E[A-Z]+|ERR_[A-Z_]+)$/;
+/** The transport's text for the same cases ("Network error", "timeout of 10000ms exceeded", …). */
+const NETWORK_ERROR_TEXT = /^(network error|timeout of \d+ms exceeded|socket hang up|aborted|(connect|read|write|getaddrinfo) E[A-Z]+)/i;
+
+/** True when a mailgun.js error means "no response arrived", not "Mailgun said no". */
+export function isNetworkFailure(message: string | undefined, details: string | undefined): boolean {
+  return (!!message && NETWORK_ERROR_CODE.test(message)) || (!message && NETWORK_ERROR_TEXT.test(details ?? ""));
+}
+
 let client: ReturnType<Mailgun["client"]> | undefined;
 
 function mg() {
@@ -34,6 +44,13 @@ export async function sendEmail({ to, subject, html, text, tag }: Message): Prom
     // mailgun.js errors carry the HTTP status and Mailgun's reason in `details`
     // (e.g. 403 "add the address to your authorized recipients" on a sandbox).
     const { status, details, message } = err as { status?: number; details?: string; message?: string };
+    // When no response arrived (timeout, reset, DNS), mailgun.js still reports
+    // status 400, with the network error code (or nothing) as the message and
+    // the transport's error text in `details`. Mailgun may or may not have the
+    // message then, so report it without a status (no fallback, no duplicate).
+    if (isNetworkFailure(message, details)) {
+      throw new MailgunError(`Mailgun unreachable: ${message || details}`, undefined);
+    }
     throw new MailgunError(`Mailgun ${status ?? "error"}: ${redact(details || message || "unknown")}`, status);
   }
   if (!res.id) throw new MailgunError(`Mailgun did not accept the message (status ${res.status})`, res.status);

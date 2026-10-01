@@ -1,5 +1,5 @@
 import { renderOrderConfirmation } from "@/lib/email/order-confirmation";
-import { sendEmail } from "@/lib/email/mailgun";
+import { deliver } from "@/lib/email/deliver";
 import { publicEnv } from "@/lib/env";
 import { getOrder } from "@/lib/orders";
 import type { Db } from "@/lib/supabase/clients";
@@ -30,17 +30,18 @@ export async function sendOrderConfirmation(admin: Db, orderId: string): Promise
 
     try {
       const email = renderOrderConfirmation(order, publicEnv().NEXT_PUBLIC_SITE_URL);
-      const messageId = await sendEmail({ to: order.customerEmail, ...email, tag: "order-confirmation" });
+      const { provider, messageId } = await deliver({ to: order.customerEmail, ...email, tag: "order-confirmation" });
       await admin
         .from("email_log")
-        .update({ status: "sent", provider_message_id: messageId, error: null })
+        // "<provider>:<id>" records which service delivered it, without a schema change.
+        .update({ status: "sent", provider_message_id: `${provider}:${messageId}`, error: null })
         .eq("order_id", orderId)
         .eq("type", TYPE);
-      log.info("confirmation email sent", { orderId });
+      log.info("confirmation email sent", { orderId, provider });
       return "sent";
     } catch (err) {
       // Keep the reason short and free of personal data.
-      const reason = err instanceof Error ? `${err.name}: ${err.message}`.slice(0, 300) : "unknown error";
+      const reason = err instanceof Error ? redactAddresses(`${err.name}: ${err.message}`).slice(0, 500) : "unknown error";
       await admin.from("email_log").update({ status: "failed", error: reason }).eq("order_id", orderId).eq("type", TYPE);
       log.error("confirmation email failed", { orderId, reason });
       return "failed";
@@ -77,4 +78,9 @@ export async function confirmationStatus(admin: Db, orderId: string): Promise<"s
   const { data } = await admin.from("email_log").select("status").eq("order_id", orderId).eq("type", TYPE).maybeSingle();
   if (!data) return null;
   return data.status === "sent" ? "sent" : data.status === "failed" ? "failed" : "pending";
+}
+
+/** Gmail's SMTP errors can echo addresses back; keep them out of email_log. */
+function redactAddresses(text: string): string {
+  return text.replace(/[\w.+-]+@[\w-]+(\.[\w-]+)+/g, "<email>");
 }

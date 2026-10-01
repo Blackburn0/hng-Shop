@@ -257,17 +257,27 @@ Live at **https://hng-shop-oztn.vercel.app**. Every push to `main` redeploys aut
   - Card #9B98F653: ₦4,200, paid. Paystack's `charge.success` webhook arrived 15 s later, and still only one email was sent.
 
 ### Phase 10 — Open to everyone with the link
-Everything already works for anyone, except emails, which only reach the Mailgun sandbox's authorised recipients.
+Everything works for anyone. Emails go through Mailgun first. When the sandbox refuses an address it can't send to, the same email goes through **Gmail** instead (no domain needed).
+- [x] Gmail fallback (`src/lib/email/deliver.ts`, `gmail.ts`, with `nodemailer` approved):
+  - It's used only when Mailgun **answered with an error** (e.g. the sandbox 403), so Mailgun queued nothing.
+  - Timeouts and dropped connections are **not** re-sent through Gmail, because Mailgun might have the message, and a customer getting it twice is worse. Those are recorded as failed and the normal retry handles them.
+  - `email_log.provider_message_id` is now `mailgun:<id>` or `gmail:<id>`, so you can see which service delivered each email.
+  - Turned off unless `GMAIL_USER` and `GMAIL_APP_PASSWORD` are set. `EMAIL_FROM_NAME` defaults to "Coffee Shop".
+  - Tests: 24 new tests in `email-fallback.test.ts`, with nodemailer replaced by a stand-in. The suite never uses real Gmail credentials. Full suite 233/233, 91.8% line and 88.2% branch coverage. The email code: 98.0% line, 85.3% branch. `next build` passes.
+  - Found while testing: `mailgun.js` reports a dropped connection as status 400 with an empty message. `isNetworkFailure()` now tells that apart from a real refusal.
+  - Your App Password checked with an SMTP login that sends nothing: OK.
+- [ ] **(you)** Add `GMAIL_USER` and `GMAIL_APP_PASSWORD` (as **Secret**) in Vercel for Production and Preview, then redeploy
+- [ ] **(you)** Order on the live site with a Google account that is **not** a Mailgun authorised recipient, and check its inbox. Then Claude checks that `email_log` shows `gmail:`.
 - [ ] **(you)** Google Auth Platform → **Audience**: confirm it says **In production** (not Testing)
 - [ ] **(you)** Supabase → Authentication → URL Configuration → **Site URL**: change `http://localhost:3000` to `https://hng-shop-oztn.vercel.app`
-- [ ] **(you)** Verify your own domain in Mailgun, so confirmation emails reach anyone (and land in inboxes, not spam):
+- [ ] Optional now (the Gmail fallback covers delivery): verify your own domain in Mailgun, so emails come from your domain instead of Gmail:
   1. Get a domain if you don't have one (Vercel → Domains → Buy, Cloudflare or Namecheap; about $10–15 a year).
   2. Mailgun → **Send → Sending → Domains → Add new domain**: use a subdomain such as `mg.yourname.com`, region **US**.
   3. Add the DNS records Mailgun shows (SPF TXT, DKIM TXT, MX, optional tracking CNAME), plus DMARC: TXT at `_dmarc.mg` with value `v=DMARC1; p=none;`
   4. Mailgun → **Verify DNS settings** (minutes to a few hours). Mailgun may also ask you to confirm your account.
   5. Create a **sending key** for the new domain.
   6. In Vercel and `.env.local`, set `MAILGUN_DOMAIN`, `MAILGUN_FROM="Coffee Shop <orders@mg.yourname.com>"` and `MAILGUN_API_KEY` (the new key). Then **Redeploy**.
-- [ ] Send a test to an address outside the old authorised list and confirm delivery (Claude, after the domain is verified)
+- [ ] If you verify a domain: send a test to an address outside the old authorised list (Claude). From then on Mailgun handles every email itself.
 - [ ] Optional: a Vercel **Firewall** rate-limit rule for a hard limit across all instances (the in-app limit is per instance)
 
 **Free plan limits:**
@@ -296,5 +306,5 @@ Everything already works for anyone, except emails, which only reach the Mailgun
 
 ## 7. Waiting on you
 
-1. Phase 10: confirm Google is **In production**, change the Supabase **Site URL**, and verify a domain in Mailgun
+1. Phase 10: add the Gmail variables in Vercel and test with a non-authorised address; confirm Google is **In production**; change the Supabase **Site URL**
 2. Review and merge the PR for this plan update
