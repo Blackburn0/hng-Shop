@@ -1,14 +1,22 @@
 openapi: 3.1.0
 info:
   title: Coffee Shop API
-  version: 0.1.0
-  description: Endpoints are added phase by phase — see plan.md §3.
+  version: 0.2.0
+  description: |
+    Endpoints are added phase by phase — see plan.md §3.
+    Errors use RFC 9457 Problem Details (`application/problem+json`).
+    Money is integer minor units (kobo) plus a currency code.
 servers:
   - url: http://localhost:3000
+tags:
+  - name: ops
+  - name: products
+  - name: cart
 paths:
   /api/health:
     get:
-      summary: Liveness check
+      tags: [ops]
+      summary: Liveness check (also served at /health)
       operationId: getHealth
       responses:
         "200":
@@ -21,8 +29,230 @@ paths:
                 properties:
                   status: { type: string, const: ok }
                   time: { type: string, format: date-time }
+  /api/ready:
+    get:
+      tags: [ops]
+      summary: Readiness check — database reachable (also served at /ready)
+      operationId: getReady
+      responses:
+        "200":
+          description: Ready
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Readiness" }
+        "503":
+          description: A dependency is unavailable
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Readiness" }
+
+  /api/v1/products:
+    get:
+      tags: [products]
+      summary: List active products
+      operationId: listProducts
+      parameters:
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Cursor" }
+        - name: category
+          in: query
+          schema: { $ref: "#/components/schemas/Category" }
+      responses:
+        "200":
+          description: A page of products ordered by catalogue position
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, nextCursor]
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/Product" } }
+                  nextCursor: { type: [string, "null"] }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /api/v1/products/{slug}:
+    get:
+      tags: [products]
+      summary: Get one active product
+      operationId: getProduct
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string, pattern: "^[a-z0-9]+(-[a-z0-9]+)*$", maxLength: 120 }
+      responses:
+        "200":
+          description: The product
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Product" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/cart:
+    get:
+      tags: [cart]
+      summary: The signed-in user's cart
+      operationId: getCart
+      security: [{ bearer: [] }, { cookie: [] }]
+      responses:
+        "200":
+          description: The cart, priced from the products table
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Cart" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/cart/items/{productId}:
+    parameters:
+      - name: productId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    put:
+      tags: [cart]
+      summary: Set an item's quantity (idempotent)
+      operationId: setCartItem
+      security: [{ bearer: [] }, { cookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [quantity]
+              properties:
+                quantity: { type: integer, minimum: 1, maximum: 99 }
+      responses:
+        "200":
+          description: The updated cart
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Cart" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      tags: [cart]
+      summary: Remove an item (idempotent)
+      operationId: removeCartItem
+      security: [{ bearer: [] }, { cookie: [] }]
+      responses:
+        "204": { description: Removed (or was not in the cart) }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/cart/merge:
+    post:
+      tags: [cart]
+      summary: Merge a guest cart after sign-in
+      description: For each product the larger of the stored and incoming quantities wins, so retries are safe.
+      operationId: mergeCart
+      security: [{ bearer: [] }, { cookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  maxItems: 50
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [productId, quantity]
+                    properties:
+                      productId: { type: string, format: uuid }
+                      quantity: { type: integer, minimum: 1, maximum: 99 }
+      responses:
+        "200":
+          description: The merged cart plus product ids that were skipped (unknown or inactive)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: "#/components/schemas/Cart" }
+                  - type: object
+                    required: [skipped]
+                    properties:
+                      skipped: { type: array, items: { type: string, format: uuid } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
 components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer, description: Supabase access token }
+    cookie: { type: apiKey, in: cookie, name: sb-<project-ref>-auth-token, description: Supabase session cookie }
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    Cursor:
+      name: cursor
+      in: query
+      description: Opaque value from a previous page's nextCursor
+      schema: { type: string, maxLength: 512 }
+  responses:
+    BadRequest:
+      description: Invalid path or query parameters, or malformed JSON
+      content: { application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } } }
+    Unauthorized:
+      description: Missing or invalid session
+      headers: { WWW-Authenticate: { schema: { type: string, const: Bearer } } }
+      content: { application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } } }
+    NotFound:
+      description: Resource not found
+      content: { application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } } }
+    ValidationError:
+      description: Request body failed validation
+      content: { application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } } }
   schemas:
+    Category: { type: string, enum: [coffee, pastry] }
+    Product:
+      type: object
+      required: [id, slug, name, description, category, priceMinor, currency, imageUrl]
+      properties:
+        id: { type: string, format: uuid }
+        slug: { type: string }
+        name: { type: string }
+        description: { type: string }
+        category: { $ref: "#/components/schemas/Category" }
+        priceMinor: { type: integer, description: Price in kobo }
+        currency: { type: string, const: NGN }
+        imageUrl: { type: string }
+    CartItem:
+      type: object
+      required: [productId, slug, name, imageUrl, unitPriceMinor, quantity, lineTotalMinor]
+      properties:
+        productId: { type: string, format: uuid }
+        slug: { type: string }
+        name: { type: string }
+        imageUrl: { type: string }
+        unitPriceMinor: { type: integer }
+        quantity: { type: integer, minimum: 1, maximum: 99 }
+        lineTotalMinor: { type: integer }
+    Cart:
+      type: object
+      required: [items, itemCount, subtotalMinor, currency]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/CartItem" } }
+        itemCount: { type: integer }
+        subtotalMinor: { type: integer }
+        currency: { type: string, const: NGN }
+    Readiness:
+      type: object
+      required: [status, checks]
+      properties:
+        status: { type: string, enum: [ready, unavailable] }
+        checks:
+          type: object
+          properties:
+            database: { type: string, enum: [ok, error] }
     Problem:
       type: object
       description: RFC 9457 Problem Details

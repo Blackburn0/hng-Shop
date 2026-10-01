@@ -1,4 +1,5 @@
-// Global test setup. Phase 2 adds: load .env.local, helpers that create and
-// clean up tagged test rows in hng-shop (never truncate — see AGENTS.md), and
-// the MSW server for Paystack/Mailgun.
-export {};
+import { existsSync } from "node:fs";
+
+// Tests run against the hng-shop Supabase project (plan.md D6), using the same
+// keys as the app. Helpers in tests/helpers/db.ts only touch rows they create.
+if (existsSync(".env.local")) process.loadEnvFile(".env.local");

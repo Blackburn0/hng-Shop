@@ -153,18 +153,25 @@ email_log       id · order_id · type · provider_message_id · status · creat
 - [x] Write the migration (tables, enums, RLS, profile trigger) and its down script
 - [x] Write the product seed migration and add the product images
 - [x] Test up, down and up again, plus the constraints and RLS, on an in-memory Postgres (PGlite) with stand-ins for Supabase's auth: 26/26 checks pass
-- [ ] **(you)** `npx supabase login` → `npx supabase link --project-ref rnsrxyjvyvyugbplcxbu` → `npx supabase db push`
-- [ ] Generate TypeScript types (`npm run db:types`) after the push
+- [x] **(you)** Applied both migrations in the SQL Editor and recorded them in `supabase_migrations.schema_migrations`
+- [x] Checked from the app: anon can read the 3 products, and anon is refused on `orders`
+- [x] TypeScript types in `src/lib/database.types.ts`, written by hand to match the schema. `npm run db:types` can regenerate them after `supabase link`.
 
 ### Phase 3 — Layout and static pages
-- [ ] Header (logo, Products, Checkout, sign-in / avatar), footer (logo, tagline, three pill buttons, ©)
-- [ ] Home hero, buttons, spinner rebuilt from the SVGs
-- [ ] Responsive layouts. The designs are desktop only, so I'll design mobile at a 375px width.
+- [x] Header (logo, Products, Checkout with a cart count) and footer (logo, tagline, three pill buttons, ©). The sign-in / avatar button comes in Phase 5.
+- [x] Home hero, pill buttons, spinner component rebuilt from `loader.svg`
+- [x] Responsive layouts, checked at 1440px, about 630px and 375px
+- [x] Hero photo: your export, converted to `public/hero.jpg` (1440×880, 285 KB)
 
 ### Phase 4 — Products and cart
-- [ ] `GET /api/v1/products` and `GET /api/v1/products/{slug}`, with tests
-- [ ] `/products` page
-- [ ] Cart: localStorage for guests, the database for signed-in users, and a merge after sign-in, with tests
+- [x] `GET /api/v1/products` (cursor pagination, `?category=`) and `GET /api/v1/products/{slug}`, with tests
+- [x] `/products` page (the footer's "our Coffee" / "our Pastry" filter it by category)
+- [x] Guest cart in localStorage (`src/lib/guest-cart.ts`) + Add to Cart button + header count
+- [x] Cart API: `GET /cart`, `PUT` and `DELETE /cart/items/{id}`, `POST /cart/merge` (Bearer token or session cookie), with tests
+- [x] `GET /api/ready` checks the database
+- [x] Full test suite against `hng-shop`: 77/77 pass, 88.7% line and 86.8% branch coverage. Cleanup leaves no test users, products or cart rows behind.
+- [x] Checked on the running server with a temporary user: GET, PUT, DELETE and merge, each with success and failure cases
+- [ ] Switch the header and checkout to the database cart after sign-in (Phase 5)
 
 ### Phase 5 — Google sign-in
 - [ ] Supabase SSR clients (browser, server, middleware/proxy session refresh)
