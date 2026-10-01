@@ -218,7 +218,7 @@ email_log       id · order_id · type · provider_message_id · status · creat
 - [x] Tests: 15 email tests with MSW standing in for Mailgun. Any unmatched Paystack or Mailgun request fails, so tests can never reach the real services. Full suite 166/166, 90.0% line and 86.6% branch coverage. The email code: 97% line, 80% branch.
 - [x] Checked on the running server with the real Mailgun key: an order for an unauthorised `@example.com` address got 201, and the email was recorded as `failed`: "Mailgun 403 … add the address to your authorized recipients". So the key and domain are valid. A wrong key gets 401.
 - [x] **(you)** Your address added as an authorised recipient in the Mailgun sandbox
-- [ ] **(you)** Place a cash order signed in with that address and check your inbox (and spam folder)
+- [x] **(you)** Real email received for cash order #D1A6880B (landed in Gmail spam: expected for an unauthenticated sandbox domain). Fixed the phone number Gmail had hidden on the brown card.
 
 ### Phase 8 — Hardening and handover
 - [ ] Structured JSON logs with `X-Request-Id`, and no secrets or personal data in logs

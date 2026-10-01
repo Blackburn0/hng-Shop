@@ -37,6 +37,10 @@ export function renderOrderConfirmation(order: Order, siteUrl: string): Rendered
 
   const subject = `Your Coffee Shop order #${no}`;
   const e = escapeHtml;
+  // Gmail auto-links phone numbers in its own dark blue, which vanishes on the
+  // espresso card. Linking it ourselves, with an inline white colour, wins.
+  const tel = order.delivery.phone.replace(/[^\d+]/g, "");
+  const phoneLink = `<a href="tel:${e(tel)}" style="color:#ffffff;text-decoration:none;">${e(order.delivery.phone)}</a>`;
 
   const rows = order.items
     .map(
@@ -79,7 +83,7 @@ export function renderOrderConfirmation(order: Order, siteUrl: string): Rendered
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${ESPRESSO};border-radius:20px;color:#fff;">
             <tr><td style="padding:20px 24px;font-size:15px;line-height:1.6;">
               <strong style="font-size:17px;">Delivery</strong><br>
-              ${e(order.delivery.name)}<br>${e(order.delivery.phone)}<br>${e(order.delivery.address).replace(/\n/g, "<br>")}
+              ${e(order.delivery.name)}<br>${phoneLink}<br>${e(order.delivery.address).replace(/\n/g, "<br>")}
               <br><br><strong style="font-size:17px;">Payment</strong><br>${e(paymentLabel)}
             </td></tr>
           </table>

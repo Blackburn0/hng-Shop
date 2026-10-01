@@ -62,6 +62,13 @@ describe("renderOrderConfirmation", () => {
     expect(email.text).toContain("Thank you, Ada!");
   });
 
+  it("renders the phone as a white tel: link so Gmail can't recolour it on the dark card", () => {
+    expect(email.html).toContain(
+      '<a href="tel:08012345678" style="color:#ffffff;text-decoration:none;">0801 234 5678</a>',
+    );
+    expect(email.text).toContain("0801 234 5678");
+  });
+
   it("uses card wording for paid card orders", () => {
     const card = renderOrderConfirmation({ ...sample, paymentMethod: "card", status: "paid" }, SITE);
     expect(card.text).toContain("Your payment was received");
