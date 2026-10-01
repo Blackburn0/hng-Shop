@@ -11,10 +11,16 @@ export const mailgun = {
   failNext: 0,
   /** reply 200 but without a message id (malformed success) */
   omitIdNext: 0,
+  /** reply 403 exactly like the sandbox does for an unauthorised recipient */
+  sandboxRejectNext: 0,
+  /** drop the connection (no HTTP status: Mailgun may or may not have the message) */
+  networkErrorNext: 0,
   reset() {
     this.sent = [];
     this.failNext = 0;
     this.omitIdNext = 0;
+    this.sandboxRejectNext = 0;
+    this.networkErrorNext = 0;
   },
   to(email: string) {
     return this.sent.filter((m) => m.to === email);
@@ -30,6 +36,19 @@ export const mailgunHandlers = [
     }
     if (!request.headers.get("authorization")?.startsWith("Basic ")) {
       return HttpResponse.json({ message: "Forbidden" }, { status: 401 });
+    }
+    if (mailgun.networkErrorNext > 0) {
+      mailgun.networkErrorNext--;
+      return HttpResponse.error();
+    }
+    if (mailgun.sandboxRejectNext > 0) {
+      mailgun.sandboxRejectNext--;
+      return HttpResponse.json(
+        {
+          message: `Domain ${process.env.MAILGUN_DOMAIN} is not allowed to send: Free accounts are for test purposes only. Please upgrade or add the address to your authorized recipients.`,
+        },
+        { status: 403 },
+      );
     }
     if (mailgun.failNext > 0) {
       mailgun.failNext--;

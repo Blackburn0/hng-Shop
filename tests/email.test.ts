@@ -143,7 +143,7 @@ describe("order confirmation emails", () => {
     });
     expect(mails[0]!.html).toContain("₦7,000.00");
     expect(mails[0]!.text).toContain("Cash on delivery");
-    expect(await logRow(id)).toEqual([{ status: "sent", provider_message_id: expect.stringMatching(/^<test-/), error: null }]);
+    expect(await logRow(id)).toEqual([{ status: "sent", provider_message_id: expect.stringMatching(/^mailgun:<test-/), error: null }]);
     expect(await confirmationStatus(admin(), id)).toBe("sent");
   });
 
