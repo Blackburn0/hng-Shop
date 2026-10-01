@@ -271,17 +271,13 @@ Everything works for anyone. Emails go through Mailgun first. When the sandbox r
 - [x] Mailgun emails set **Reply-To** to the Gmail address when it's configured, so replying to any confirmation reaches a real mailbox (sandbox senders have none)
 - [x] **(you)** Supabase **Site URL** changed to `https://hng-shop-oztn.vercel.app`
 - [x] `/privacy` page added and linked from the footer. Google needs a privacy policy link before the app can be published.
-- [ ] **(you)** **Publish the Google app.** Audience still says **Testing**, so only listed test users can sign in; everyone else sees "Access blocked". The **Publish app** button stays greyed out until the **Branding** page is complete:
-  1. Google Auth Platform → **Branding**:
-     - App name `Coffee Shop`, and a user support email
-     - **No logo** (a logo triggers Google's brand verification, which takes days)
-     - App home page: `https://hng-shop-oztn.vercel.app`
-     - Privacy policy link: `https://hng-shop-oztn.vercel.app/privacy`
-     - Authorized domains: `hng-shop-oztn.vercel.app` and `rnsrxyjvyvyugbplcxbu.supabase.co`
-     - Developer contact email
-     - **Save**
-  2. Google Auth Platform → **Audience** → **Publish app** → **Confirm**. With only the `openid`, `email` and `profile` scopes, it goes live straight away.
-  3. Test sign-in with an account that isn't on the Test users list.
+- [x] **(you)** **Google app published: Audience → Publishing status "In production"**, so anyone with a Google account can sign in. PR #3 (`/privacy`) was merged and live first. Branding saved with:
+  - App name `Coffee Shop`, a user support email, **no logo**
+  - Home page `https://hng-shop-oztn.vercel.app`, privacy policy `https://hng-shop-oztn.vercel.app/privacy`
+  - Authorized domains `hng-shop-oztn.vercel.app` and `rnsrxyjvyvyugbplcxbu.supabase.co`
+  - Developer contact email
+- [ ] **(you)** Sign in once, in an incognito window, with an account that isn't on the Test users list, to confirm
+- Note: the "Your app requires verification" banner is about Google's optional **brand verification** (showing the app name and logo on the sign-in screen). It isn't needed for the `openid`, `email` and `profile` scopes, and it needs domain ownership proof that a `vercel.app` address can't give. Until then Google shows `rnsrxyjvyvyugbplcxbu.supabase.co` as the app name, and sign-in works. **Don't click "Back to testing"**: that would block everyone except listed test users.
 - [ ] Optional now (the Gmail fallback covers delivery): verify your own domain in Mailgun, so emails come from your domain instead of Gmail:
   1. Get a domain if you don't have one (Vercel → Domains → Buy, Cloudflare or Namecheap; about $10–15 a year).
   2. Mailgun → **Send → Sending → Domains → Add new domain**: use a subdomain such as `mg.yourname.com`, region **US**.
@@ -294,6 +290,7 @@ Everything works for anyone. Emails go through Mailgun first. When the sandbox r
 
 **Free plan limits:**
 - Mailgun: about 100 emails a day
+- Gmail (the fallback sender): about 500 emails a day
 - Supabase: pauses after about a week with no activity (resume it from the dashboard; the data is kept)
 - Paystack: stays in **test mode** (test cards, no real money). Live payments would need Paystack's compliance steps.
 
@@ -312,11 +309,26 @@ Everything works for anyone. Emails go through Mailgun first. When the sandbox r
   - Google redirect URI: `https://rnsrxyjvyvyugbplcxbu.supabase.co/auth/v1/callback`
   - Redirect URLs: `http://localhost:3000/**` and `https://hng-shop-oztn.vercel.app/**`
 - [x] **Paystack**: test secret key in `.env.local` and Vercel; Test Webhook URL set to the live site
-- [x] **Mailgun**: sandbox domain, sending key and authorised recipient set. A domain of your own is still to do (Phase 10).
+- [x] **Mailgun**: sandbox domain, sending key and authorised recipient set. A domain of your own is optional (Phase 10); the Gmail fallback delivers to everyone else.
+- [x] **Gmail fallback**: App Password created; `GMAIL_USER` and `GMAIL_APP_PASSWORD` in `.env.local` and Vercel
+- [x] **Google Auth Platform**: Branding complete, published **In production**
 
 ---
 
 ## 7. Waiting on you
 
-1. Merge the PR that adds `/privacy` (needed before the next step)
-2. Complete Google **Branding**, then **Publish app** (Phase 10). This is the last step before anyone can sign in.
+Nothing required. Every part of the shop works for anyone with the link:
+
+| Part | Status |
+| --- | --- |
+| Browse, cart | ✅ |
+| Google sign-in | ✅ In production |
+| Paystack test checkout and webhook | ✅ |
+| Cash on delivery | ✅ |
+| Confirmation email to any address | ✅ via the Gmail fallback |
+| Privacy policy | ✅ `/privacy` |
+
+Optional:
+1. Confirm sign-in with an account that isn't a test user (Phase 10).
+2. Before reviewers visit, check the Supabase project isn't paused (free plan).
+3. Phase 10 extras: your own Mailgun domain, a Vercel Firewall rule, the optional follow-ups.
