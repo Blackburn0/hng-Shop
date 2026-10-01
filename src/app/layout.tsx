@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Jost, Nothing_You_Could_Do, Nunito_Sans } from "next/font/google";
+import { CartProvider } from "@/components/CartProvider";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
+import { getCurrentUser } from "@/lib/supabase/server";
 import "./globals.css";
 
 const jost = Jost({ subsets: ["latin"], variable: "--font-jost" });
@@ -17,13 +19,16 @@ export const metadata: Metadata = {
   description: "one Stop | one Heart | one Cup",
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const user = await getCurrentUser();
   return (
     <html lang="en" className={`${jost.variable} ${nunitoSans.variable} ${scriptLogo.variable}`}>
       <body className="flex min-h-dvh flex-col antialiased">
-        <SiteHeader />
-        <main className="flex-1">{children}</main>
-        <SiteFooter />
+        <CartProvider signedIn={user !== null}>
+          <SiteHeader user={user} />
+          <main className="flex-1">{children}</main>
+          <SiteFooter />
+        </CartProvider>
       </body>
     </html>
   );

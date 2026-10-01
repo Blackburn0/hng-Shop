@@ -68,6 +68,9 @@ function subscribe(listener: () => void) {
 const clamp = (q: number) => Math.max(1, Math.min(MAX_QUANTITY, Math.trunc(q)));
 
 export const guestCart = {
+  current(): GuestCartItem[] {
+    return snapshot();
+  },
   add(item: Omit<GuestCartItem, "quantity">, quantity = 1) {
     const items = snapshot();
     const existing = items.find((i) => i.productId === item.productId);

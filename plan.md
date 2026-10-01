@@ -171,12 +171,21 @@ email_log       id · order_id · type · provider_message_id · status · creat
 - [x] `GET /api/ready` checks the database
 - [x] Full test suite against `hng-shop`: 77/77 pass, 88.7% line and 86.8% branch coverage. Cleanup leaves no test users, products or cart rows behind.
 - [x] Checked on the running server with a temporary user: GET, PUT, DELETE and merge, each with success and failure cases
-- [ ] Switch the header and checkout to the database cart after sign-in (Phase 5)
+- [x] After sign-in the header and Add to Cart use the database cart (`CartProvider`), and the guest cart is merged in, then cleared
 
 ### Phase 5 — Google sign-in
-- [ ] Supabase SSR clients (browser, server, middleware/proxy session refresh)
-- [ ] "Sign in with Google" button, `/auth/callback`, sign-out
-- [ ] Checkout and orders routes require sign-in; tests cover 401 and 404-for-others
+- [x] Sign-in handled on the server, with no Supabase code in the browser:
+  - `GET /auth/login?next=` starts Google sign-in (PKCE)
+  - `GET /auth/callback` swaps the code for a session cookie
+  - `POST /auth/signout` refuses requests from other sites with 403
+- [x] `src/proxy.ts` (Next 16's name for middleware) refreshes the session on every request. `getCurrentUser()` is available to Server Components.
+- [x] Header: "Sign in", or the user's Google photo with a menu to sign out. On screens under 400px these show as icons.
+- [x] `/login` page with a friendly message for each error. `?next=` only accepts paths on this site, so it can't redirect anywhere else.
+- [x] 24 auth tests. The full suite is 101/101, with 85.7% line and 87.6% branch coverage.
+- [x] Checked on the running server: login gives a 303 to Supabase's authorize URL, and the callback and sign-out error paths all work
+- [x] **(you)** Google Cloud client created, app published, and the Google provider turned on in Supabase
+- [x] Real Google sign-in checked: the user and profile (name + photo) were created by the trigger, and the guest cart merged into the database
+- [ ] Checkout and orders require sign-in (built in Phase 6)
 
 ### Phase 6 — Checkout and Paystack
 - [ ] `/checkout` page to match the design (+ delivery card, D3)
@@ -196,6 +205,16 @@ email_log       id · order_id · type · provider_message_id · status · creat
 - [ ] Coverage ≥ 80% · full test suite, lint and typecheck pass
 - [ ] Test by hand against the running server with curl: each endpoint's success and failure cases, plus a full Paystack test payment
 - [ ] Open a PR from `feat/scaffold` (and later branches) into `main`
+
+### Phase 9 — Deploy to Vercel (so the group can test)
+Each deploy step needs your go-ahead first (AGENTS.md).
+- [ ] **(you)** Create a Vercel account and import the GitHub repo, or approve deploying with the Vercel CLI
+- [ ] Add the environment variables in Vercel → Project → Settings → Environment Variables (the same names as `.env.example`), with `NEXT_PUBLIC_SITE_URL` set to the Vercel URL
+- [ ] **(you)** Google Cloud → Clients → Coffee Shop web → **Authorized JavaScript origins**: add `https://<app>.vercel.app`
+- [ ] **(you)** Supabase → Authentication → URL Configuration: add `https://<app>.vercel.app/**` to Redirect URLs, and set Site URL to the Vercel URL
+- [ ] **(you)** Paystack → Settings → API Keys & Webhooks → Test Webhook URL: `https://<app>.vercel.app/api/v1/payments/paystack/webhook`
+- [ ] **(you)** Mailgun sandbox only delivers to authorised recipients, so group testers either get added there or you verify a real sending domain
+- [ ] Smoke-test the deployed site: `/health`, sign in, add to cart, a card test payment, cash on delivery, the confirmation email
 
 ---
 
