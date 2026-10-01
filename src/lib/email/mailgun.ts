@@ -1,4 +1,5 @@
 import Mailgun from "mailgun.js";
+import { gmailConfig } from "@/lib/email/gmail";
 import { serverEnv } from "@/lib/env";
 
 type Message = { to: string; subject: string; html: string; text: string; tag: string };
@@ -30,6 +31,7 @@ function mg() {
 /** Send one email. Resolves to Mailgun's message id; throws on any failure. */
 export async function sendEmail({ to, subject, html, text, tag }: Message): Promise<string> {
   const env = serverEnv();
+  const replyTo = gmailConfig()?.user;
   let res;
   try {
     res = await mg().messages.create(env.MAILGUN_DOMAIN, {
@@ -39,6 +41,8 @@ export async function sendEmail({ to, subject, html, text, tag }: Message): Prom
       html,
       text,
       "o:tag": [tag],
+      // Sandbox senders have no mailbox; send replies to the shop's Gmail when one is set up.
+      ...(replyTo ? { "h:Reply-To": replyTo } : {}),
     });
   } catch (err) {
     // mailgun.js errors carry the HTTP status and Mailgun's reason in `details`

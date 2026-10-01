@@ -25,7 +25,12 @@ export function SiteFooter() {
           ))}
         </nav>
 
-        <p className="mt-16 text-sm md:mt-28">© {new Date().getFullYear()} All Rights Reserved</p>
+        <div className="mt-16 flex flex-wrap items-center justify-between gap-4 text-sm md:mt-28">
+          <p>© {new Date().getFullYear()} All Rights Reserved</p>
+          <Link href="/privacy" className="underline underline-offset-4 hover:no-underline">
+            Privacy policy
+          </Link>
+        </div>
       </div>
     </footer>
   );
