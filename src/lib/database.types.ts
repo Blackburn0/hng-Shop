@@ -214,7 +214,24 @@ export type Database = {
       };
     };
     Views: { [_ in never]: never };
-    Functions: { [_ in never]: never };
+    Functions: {
+      create_order: {
+        Args: {
+          p_user_id: string;
+          p_email: string;
+          p_payment_method: Database["public"]["Enums"]["payment_method"];
+          p_delivery_name: string;
+          p_delivery_phone: string;
+          p_delivery_address: string;
+          p_paystack_reference?: string | null;
+        };
+        Returns: Database["public"]["Tables"]["orders"]["Row"];
+      };
+      mark_order_paid: {
+        Args: { p_reference: string; p_amount_minor: number; p_currency: string; p_paid_at: string | null };
+        Returns: { order_id: string; transitioned: boolean }[];
+      };
+    };
     Enums: {
       product_category: "coffee" | "pastry";
       order_status: "pending_payment" | "paid" | "failed" | "cancelled" | "cash_on_delivery";

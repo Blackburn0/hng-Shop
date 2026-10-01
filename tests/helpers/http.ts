@@ -24,6 +24,8 @@ export async function expectProblem(res: Response, status: number, instance: str
   expect(res.headers.get("content-type")).toBe("application/problem+json");
   const body = await res.json();
   expect(body).toMatchObject({ status, instance, type: expect.stringMatching(/^https:\/\//), title: expect.any(String) });
-  expect(JSON.stringify(body)).not.toMatch(/stack|postgres|sql|PGRST/i);
+  // No stack traces, database errors or SQL. Whole words only, so a path
+  // like /payments/paystack/... isn't mistaken for a "stack" leak.
+  expect(JSON.stringify(body)).not.toMatch(/\bstack\b|\bat \S+ \(|\bpostgres|\bsql\b|PGRST\d*|\bP0001\b|\b23505\b/i);
   return body as { status: number; errors?: { field: string; message: string }[]; detail?: string };
 }

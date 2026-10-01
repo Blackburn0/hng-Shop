@@ -185,13 +185,30 @@ email_log       id · order_id · type · provider_message_id · status · creat
 - [x] Checked on the running server: login gives a 303 to Supabase's authorize URL, and the callback and sign-out error paths all work
 - [x] **(you)** Google Cloud client created, app published, and the Google provider turned on in Supabase
 - [x] Real Google sign-in checked: the user and profile (name + photo) were created by the trigger, and the guest cart merged into the database
-- [ ] Checkout and orders require sign-in (built in Phase 6)
+- [x] Checkout and orders require sign-in (built in Phase 6)
 
 ### Phase 6 — Checkout and Paystack
-- [ ] `/checkout` page to match the design (+ delivery card, D3)
-- [ ] `POST /api/v1/orders` (card and cash), verify endpoint, webhook with signature check
-- [ ] `/checkout/processing` (the loading design) → `/orders/[id]`
-- [ ] Tests: success, invalid body (422), empty cart (409), price tampering ignored, bad signature (401), duplicate webhook (processed once)
+- [x] Migration `…150000_order_functions.sql`, with a rollback:
+  - `create_order` prices the cart and writes the order and its items in one transaction
+  - `mark_order_paid` is safe to call twice: only the first call counts, it checks the amount and currency, and it removes only the bought items from the cart
+  - only the server (service role) can call them
+  - PGlite: 22/22 checks pass
+- [x] `/checkout` matches the design: cart table, −/+ quantity, remove, total, "Pay By" (Visa → Paystack, Cash → cash on delivery) and "< Back to Order". Plus a Delivery details form (D3). Signed-out visitors see "Sign in with Google".
+- [x] API:
+  - `POST /api/v1/orders` (card or cash), `GET /api/v1/orders`, `GET /api/v1/orders/{id}`
+  - `GET /api/v1/payments/paystack/verify`
+  - `POST /api/v1/payments/paystack/webhook`: checks the HMAC signature, 64 KB body limit, each event recorded once
+- [x] `/checkout/processing` (the Loading design) checks the payment every 2.5 seconds for up to about 30 seconds, then goes to `/orders/[id]`
+- [x] `/orders/[id]` confirmation page, designed in the site's style (D7)
+- [x] 49 new tests in `orders.test.ts` (27) and `payments.test.ts` (22), with MSW standing in for Paystack. They cover:
+  - 401, 400, 404-for-other-users, 409 (empty cart, amount mismatch), 413, 422 including price tampering, 502
+  - a duplicate webhook, and verify racing the webhook (the order is marked paid exactly once)
+- [x] `docs/openapi.yaml` updated to v0.3.0
+- [x] **(you)** Ran `20260930150000_order_functions.sql` in the SQL Editor (both functions confirmed with `pg_proc`)
+- [x] **(you)** Paystack test secret key in `.env.local`
+- [x] Full suite against `hng-shop`: 151/151 pass, 89.0% line and 87.5% branch coverage, no leftover test data
+- [x] End to end by hand (you): a cash order (₦4,200, pay on delivery) and a card payment in Paystack test mode (₦3,500, "Success") → Loading page → Paid
+- [ ] Webhook on localhost: needs a public tunnel, so it's optional. The verify endpoint already confirms payments. The real webhook gets tested after the Vercel deploy (Phase 9).
 
 ### Phase 7 — Mailgun emails
 - [ ] Order confirmation email (HTML + plain text, brand colours, list of items, total)

@@ -91,6 +91,7 @@ export async function cleanup() {
       if (error) throw error;
     }
   }
+  await db.from("payment_events").delete().like("event_id", `%${TAG}%`);
   const productIds = [...created.productIds];
   if (productIds.length) {
     const { error } = await db.from("products").delete().in("id", productIds);
@@ -101,3 +102,26 @@ export async function cleanup() {
 }
 
 export const unknownId = () => randomUUID();
+
+/** Replace a user's cart with `items` (slug or product -> quantity), bypassing the API. */
+export async function fillCart(user: TestUser, items: { productId: string; quantity: number }[]) {
+  const db = admin();
+  await db.from("cart_items").delete().eq("user_id", user.id);
+  if (items.length === 0) return;
+  const { error } = await db
+    .from("cart_items")
+    .insert(items.map((i) => ({ user_id: user.id, product_id: i.productId, quantity: i.quantity })));
+  if (error) throw error;
+}
+
+export async function cartRows(user: TestUser) {
+  const { data, error } = await admin().from("cart_items").select("product_id, quantity").eq("user_id", user.id);
+  if (error) throw error;
+  return data;
+}
+
+export async function orderRow(id: string) {
+  const { data, error } = await admin().from("orders").select().eq("id", id).single();
+  if (error) throw error;
+  return data;
+}

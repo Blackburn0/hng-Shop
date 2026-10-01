@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Coffee Shop API
-  version: 0.2.0
+  version: 0.3.0
   description: |
     Endpoints are added phase by phase — see plan.md §3.
     Errors use RFC 9457 Problem Details (`application/problem+json`).
@@ -12,6 +12,8 @@ tags:
   - name: ops
   - name: products
   - name: cart
+  - name: orders
+  - name: payments
 paths:
   /api/health:
     get:
@@ -183,6 +185,140 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "422": { $ref: "#/components/responses/ValidationError" }
 
+  /api/v1/orders:
+    post:
+      tags: [orders]
+      summary: Create an order from the caller's cart
+      description: Prices come from the products table. `card` returns a Paystack checkout URL in `next`; `cash` is confirmed immediately and empties the cart.
+      operationId: createOrder
+      security: [{ bearer: [] }, { cookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [paymentMethod, delivery]
+              properties:
+                paymentMethod: { type: string, enum: [card, cash] }
+                delivery: { $ref: "#/components/schemas/Delivery" }
+      responses:
+        "201":
+          description: Order created
+          headers:
+            Location: { description: "/api/v1/orders/{id}", schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [order, payment, next]
+                properties:
+                  order: { $ref: "#/components/schemas/Order" }
+                  payment:
+                    oneOf:
+                      - type: "null"
+                      - type: object
+                        required: [provider, reference, authorizationUrl]
+                        properties:
+                          provider: { type: string, const: paystack }
+                          reference: { type: string }
+                          authorizationUrl: { type: string, format: uri }
+                  next: { type: string, description: Where to send the browser next }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "502": { $ref: "#/components/responses/BadGateway" }
+    get:
+      tags: [orders]
+      summary: The caller's orders, newest first
+      operationId: listOrders
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Cursor" }
+      responses:
+        "200":
+          description: A page of orders
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, nextCursor]
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/Order" } }
+                  nextCursor: { type: [string, "null"] }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/orders/{id}:
+    get:
+      tags: [orders]
+      summary: One of the caller's orders (another user's order is 404)
+      operationId: getOrder
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The order
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Order" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/payments/paystack/verify:
+    get:
+      tags: [payments]
+      summary: Ask Paystack for a payment's outcome and apply it (idempotent)
+      operationId: verifyPaystackPayment
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { name: reference, in: query, required: true, schema: { type: string, maxLength: 100 } }
+      responses:
+        "200":
+          description: Current payment state
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, order]
+                properties:
+                  status: { type: string, enum: [paid, pending, failed] }
+                  order: { $ref: "#/components/schemas/Order" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "502": { $ref: "#/components/responses/BadGateway" }
+  /api/v1/payments/paystack/webhook:
+    post:
+      tags: [payments]
+      summary: Paystack webhook (HMAC-SHA512 signed)
+      operationId: paystackWebhook
+      parameters:
+        - { name: x-paystack-signature, in: header, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "200":
+          description: Handled, ignored, or a duplicate delivery
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  received: { type: boolean }
+                  duplicate: { type: boolean }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "413": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
 components:
   securitySchemes:
     bearer: { type: http, scheme: bearer, description: Supabase access token }
@@ -207,6 +343,15 @@ components:
       content: { application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } } }
     NotFound:
       description: Resource not found
+      content: { application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } } }
+    Conflict:
+      description: Conflicts with current state (e.g. empty cart, payment mismatch)
+      content: { application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } } }
+    BadGateway:
+      description: Paystack could not be reached
+      content: { application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } } }
+    Problem:
+      description: Error (invalid signature, payload too large, ...)
       content: { application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } } }
     ValidationError:
       description: Request body failed validation
@@ -244,6 +389,39 @@ components:
         itemCount: { type: integer }
         subtotalMinor: { type: integer }
         currency: { type: string, const: NGN }
+    Delivery:
+      type: object
+      additionalProperties: false
+      required: [name, phone, address]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        phone: { type: string, description: "7-20 digits, optional leading +, spaces or dashes allowed" }
+        address: { type: string, minLength: 5, maxLength: 500 }
+    Order:
+      type: object
+      required: [id, status, paymentMethod, currency, subtotalMinor, totalMinor, customerEmail, delivery, paidAt, createdAt, items]
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [pending_payment, paid, failed, cancelled, cash_on_delivery] }
+        paymentMethod: { type: string, enum: [card, cash] }
+        currency: { type: string, const: NGN }
+        subtotalMinor: { type: integer }
+        totalMinor: { type: integer }
+        customerEmail: { type: string, format: email }
+        delivery: { $ref: "#/components/schemas/Delivery" }
+        paidAt: { type: [string, "null"], format: date-time }
+        createdAt: { type: string, format: date-time }
+        items:
+          type: array
+          items:
+            type: object
+            required: [productId, productName, unitPriceMinor, quantity, lineTotalMinor]
+            properties:
+              productId: { type: [string, "null"], format: uuid }
+              productName: { type: string }
+              unitPriceMinor: { type: integer }
+              quantity: { type: integer }
+              lineTotalMinor: { type: integer }
     Readiness:
       type: object
       required: [status, checks]

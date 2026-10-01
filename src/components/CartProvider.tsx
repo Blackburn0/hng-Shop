@@ -18,6 +18,8 @@ type CartApi = {
   add(product: Product, quantity?: number): Promise<void>;
   setQuantity(productId: string, quantity: number): Promise<void>;
   remove(productId: string): Promise<void>;
+  /** Re-read the cart from the server (e.g. after an order empties it). */
+  refresh(): Promise<void>;
 };
 
 const CartContext = createContext<CartApi | null>(null);
@@ -97,6 +99,7 @@ export function CartProvider({ signedIn, children }: { signedIn: boolean; childr
         add: async (p, q = 1) => guestCart.add(p, q),
         setQuantity: async (id, q) => guestCart.setQuantity(id, q),
         remove: async (id) => guestCart.remove(id),
+        refresh: async () => {},
       };
     }
 
@@ -122,6 +125,7 @@ export function CartProvider({ signedIn, children }: { signedIn: boolean; childr
         setServerItems((cur) => (cur ?? []).map((i) => (i.productId === id ? { ...i, quantity: next } : i)));
         await sendQuantity(id, next);
       },
+      refresh: load,
       async remove(id) {
         setServerItems((cur) => (cur ?? []).filter((i) => i.productId !== id));
         const res = await fetch(`/api/v1/cart/items/${id}`, { method: "DELETE" });
