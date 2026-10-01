@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { getAuth } from "@/lib/auth";
+import { sendOrderConfirmation } from "@/lib/email/send-order-confirmation";
 import { publicEnv } from "@/lib/env";
 import { problem, problems, readJson } from "@/lib/http/problem";
 import { createOrderBody, dbHint, getOrder, listOrders, orderCursor } from "@/lib/orders";
@@ -64,7 +65,7 @@ export async function POST(req: Request) {
   const headers = { ...PRIVATE, Location: `/api/v1/orders/${order.id}` };
 
   if (paymentMethod === "cash") {
-    // Phase 7 sends the confirmation email here.
+    await sendOrderConfirmation(admin, order.id); // never throws
     return Response.json({ order, payment: null, next: `/orders/${order.id}` }, { status: 201, headers });
   }
 

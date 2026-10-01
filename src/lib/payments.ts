@@ -1,3 +1,4 @@
+import { sendOrderConfirmation } from "@/lib/email/send-order-confirmation";
 import { dbHint } from "@/lib/orders";
 import type { PaystackTransaction } from "@/lib/paystack";
 import type { Db } from "@/lib/supabase/clients";
@@ -28,8 +29,8 @@ export async function confirmPayment(admin: Db, tx: PaystackTransaction): Promis
   }
   const row = data[0]!;
   if (row.transitioned) {
-    // Phase 7 hooks the confirmation email in here.
     console.info("order paid", { orderId: row.order_id });
+    await sendOrderConfirmation(admin, row.order_id);
   }
   return { outcome: "paid", orderId: row.order_id, transitioned: row.transitioned };
 }

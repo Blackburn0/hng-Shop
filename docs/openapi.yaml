@@ -189,7 +189,7 @@ paths:
     post:
       tags: [orders]
       summary: Create an order from the caller's cart
-      description: Prices come from the products table. `card` returns a Paystack checkout URL in `next`; `cash` is confirmed immediately and empties the cart.
+      description: Prices come from the products table. `card` returns a Paystack checkout URL in `next`; `cash` is confirmed immediately, empties the cart and sends the confirmation email (card orders get it once paid, via verify or the webhook).
       operationId: createOrder
       security: [{ bearer: [] }, { cookie: [] }]
       requestBody:

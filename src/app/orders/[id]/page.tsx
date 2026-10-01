@@ -4,6 +4,8 @@ import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
 import { pillOutline } from "@/components/ui";
 import type { Enums } from "@/lib/database.types";
+import { confirmationStatus } from "@/lib/email/send-order-confirmation";
+import { createAdminClient } from "@/lib/supabase/clients";
 import { formatMoney } from "@/lib/money";
 import { getOrder } from "@/lib/orders";
 import { createServerComponentClient, getCurrentUser } from "@/lib/supabase/server";
@@ -48,6 +50,8 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
   const order = await getOrder(await createServerComponentClient(), id);
   if (!order) notFound();
 
+  // email_log is service-role only; the order was already authorised above via RLS.
+  const emailStatus = await confirmationStatus(createAdminClient(), order.id);
   const copy = statusCopy[order.status];
   const firstName = order.delivery.name.split(/\s+/)[0];
   const orderNo = order.id.slice(0, 8).toUpperCase();
@@ -75,7 +79,17 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
           <time dateTime={order.createdAt}>{dateFmt.format(new Date(order.createdAt))}</time>
           <span className="rounded-full bg-espresso px-4 py-1 text-sm font-bold text-paper">{copy.badge}</span>
         </p>
-        {good && <p className="mt-2 text-sm opacity-75">A confirmation has been sent to {order.customerEmail}.</p>}
+        {good && emailStatus && (
+          <p className="mt-2 text-sm opacity-75">
+            {
+              {
+                sent: `A confirmation has been sent to ${order.customerEmail}.`,
+                pending: `We're sending a confirmation to ${order.customerEmail}.`,
+                failed: `We couldn't email your confirmation to ${order.customerEmail} — this page is your receipt.`,
+              }[emailStatus]
+            }
+          </p>
+        )}
       </div>
 
       <div className="mt-14 grid gap-10 lg:grid-cols-[1fr_360px]">

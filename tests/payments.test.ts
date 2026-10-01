@@ -15,7 +15,7 @@ import {
   type TestUser,
 } from "./helpers/db";
 import { expectProblem, request } from "./helpers/http";
-import { paystack, paystackServer, sign } from "./helpers/paystack";
+import { externalServices, listenOptions, mailgun, paystack, sign } from "./helpers/paystack";
 
 const VERIFY = "/api/v1/payments/paystack/verify";
 const HOOK = "/api/v1/payments/paystack/webhook";
@@ -54,7 +54,7 @@ const chargeSuccess = (reference: string, amount = 700000, currency = "NGN") => 
 });
 
 beforeAll(async () => {
-  paystackServer.listen({ onUnhandledRequest: "bypass" });
+  externalServices.listen(listenOptions);
   [alice, bob, americano, cappuccino] = await Promise.all([
     createTestUser(),
     createTestUser(),
@@ -64,10 +64,11 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   paystack.reset();
+  mailgun.reset();
   await admin().from("orders").delete().in("user_id", [alice.id, bob.id]);
 });
 afterAll(async () => {
-  paystackServer.close();
+  externalServices.close();
   await cleanup();
 });
 

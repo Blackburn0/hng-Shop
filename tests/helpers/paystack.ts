@@ -1,9 +1,10 @@
 import { createHmac } from "node:crypto";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
+import { mailgun, mailgunHandlers } from "./mailgun";
 
-// Fake Paystack (third-party service — the only thing we mock). Supabase
-// requests pass straight through to the real database.
+// Fake Paystack and Mailgun (third-party services — the only things we mock).
+// Supabase requests pass straight through to the real database.
 const BASE = process.env.PAYSTACK_BASE_URL ?? "https://api.paystack.co";
 
 type VerifyReply = { status: string; amount?: number; currency?: string; paid_at?: string | null } | "error";
@@ -25,7 +26,8 @@ export const paystack = {
   },
 };
 
-export const paystackServer = setupServer(
+export const externalServices = setupServer(
+  ...mailgunHandlers,
   http.post(`${BASE}/transaction/initialize`, async ({ request }) => {
     const body = (await request.json()) as Record<string, unknown>;
     paystack.initializeCalls.push(body);
@@ -61,6 +63,19 @@ export const paystackServer = setupServer(
     });
   }),
 );
+
+export { mailgun };
+
+/**
+ * Supabase passes through to the real database; any Paystack or Mailgun
+ * request that no handler matches fails loudly instead of reaching the real
+ * service with real keys.
+ */
+export const listenOptions: Parameters<typeof externalServices.listen>[0] = {
+  onUnhandledRequest(request, print) {
+    if (/(^|\.)(paystack\.co|mailgun\.net)$/.test(new URL(request.url).hostname)) print.error();
+  },
+};
 
 export function sign(rawBody: string): string {
   return createHmac("sha512", process.env.PAYSTACK_SECRET_KEY!).update(rawBody).digest("hex");

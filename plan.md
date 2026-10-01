@@ -211,9 +211,14 @@ email_log       id · order_id · type · provider_message_id · status · creat
 - [ ] Webhook on localhost: needs a public tunnel, so it's optional. The verify endpoint already confirms payments. The real webhook gets tested after the Vercel deploy (Phase 9).
 
 ### Phase 7 — Mailgun emails
-- [ ] Order confirmation email (HTML + plain text, brand colours, list of items, total)
-- [ ] Sent when an order is marked paid or confirmed as cash on delivery; `email_log` makes sure it's sent only once
-- [ ] **(you)** Add your own email address as an authorised recipient in the Mailgun sandbox
+- [x] Order confirmation email (`src/lib/email/`): HTML laid out with tables and inline styles plus a plain-text version, brand colours, items, total, delivery details, a "View your order" link. Customer-entered text is HTML-escaped.
+- [x] Sent when a cash order is placed, or when a card order first becomes paid (by verify or by the webhook). `email_log` lets only one sender claim each order, so racing calls send exactly one email, and a failed send can be retried.
+- [x] If Mailgun is down, the order still succeeds. The failure is stored with the HTTP status and Mailgun's reason, with email addresses blanked out.
+- [x] Order page: "A confirmation has been sent…" only shows once that's true. Otherwise it shows "We're sending…" or "We couldn't email…".
+- [x] Tests: 15 email tests with MSW standing in for Mailgun. Any unmatched Paystack or Mailgun request fails, so tests can never reach the real services. Full suite 166/166, 90.0% line and 86.6% branch coverage. The email code: 97% line, 80% branch.
+- [x] Checked on the running server with the real Mailgun key: an order for an unauthorised `@example.com` address got 201, and the email was recorded as `failed`: "Mailgun 403 … add the address to your authorized recipients". So the key and domain are valid. A wrong key gets 401.
+- [x] **(you)** Your address added as an authorised recipient in the Mailgun sandbox
+- [ ] **(you)** Place a cash order signed in with that address and check your inbox (and spam folder)
 
 ### Phase 8 — Hardening and handover
 - [ ] Structured JSON logs with `X-Request-Id`, and no secrets or personal data in logs

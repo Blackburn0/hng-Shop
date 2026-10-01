@@ -15,7 +15,7 @@ import {
   unknownId,
 } from "./helpers/db";
 import { expectProblem, params, request } from "./helpers/http";
-import { paystack, paystackServer } from "./helpers/paystack";
+import { externalServices, listenOptions, mailgun, paystack } from "./helpers/paystack";
 
 const PATH = "/api/v1/orders";
 const delivery = { name: "Ada Lovelace", phone: "0801 234 5678", address: "12 Marina Road, Lagos" };
@@ -45,7 +45,7 @@ const post = (user: TestUser | null, body: unknown) =>
   createOrder(request(PATH, { method: "POST", token: user?.accessToken, body }));
 
 beforeAll(async () => {
-  paystackServer.listen({ onUnhandledRequest: "bypass" });
+  externalServices.listen(listenOptions);
   [alice, bob, americano, cappuccino] = await Promise.all([
     createTestUser(),
     createTestUser(),
@@ -55,13 +55,14 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   paystack.reset();
+  mailgun.reset();
   await admin().from("orders").delete().in("user_id", [alice.id, bob.id]);
   await fillCart(alice, [{ productId: americano.id, quantity: 2 }]);
   await fillCart(bob, []);
 });
-afterEach(() => paystackServer.resetHandlers());
+afterEach(() => externalServices.resetHandlers());
 afterAll(async () => {
-  paystackServer.close();
+  externalServices.close();
   await cleanup();
 });
 
