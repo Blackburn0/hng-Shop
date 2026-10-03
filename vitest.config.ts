@@ -16,7 +16,8 @@ export default defineConfig({
     hookTimeout: 30_000,
     coverage: {
       provider: "v8",
-      include: ["src/**/*.ts"],
+      // Plus the mobile app's framework-free modules (the rest of mobile/ is React Native UI).
+      include: ["src/**/*.ts", "mobile/src/lib/api.ts", "mobile/src/lib/money.ts"],
       // src/components holds UI (verified in the browser); ui.ts there is only class strings.
       exclude: ["src/**/*.test.ts", "src/lib/database.types.ts", "src/components/**"],
       thresholds: { lines: 80, branches: 80 },

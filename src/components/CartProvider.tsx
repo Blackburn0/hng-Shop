@@ -3,6 +3,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { Cart } from "@/lib/cart";
 import { MAX_QUANTITY } from "@/lib/cart";
+import { subscribeToCartChanges } from "@/lib/cart-sync";
+import { browserSupabase } from "@/lib/supabase/browser";
 import { guestCart, useGuestCart, type GuestCartItem } from "@/lib/guest-cart";
 
 type Item = GuestCartItem;
@@ -55,7 +57,15 @@ async function fetchServerCart(): Promise<Item[] | null> {
  * /api/v1/cart. On the first render after sign-in the guest cart is merged into
  * the server cart and then cleared.
  */
-export function CartProvider({ signedIn, children }: { signedIn: boolean; children: React.ReactNode }) {
+export function CartProvider({
+  signedIn,
+  userId,
+  children,
+}: {
+  signedIn: boolean;
+  userId: string | null;
+  children: React.ReactNode;
+}) {
   const guest = useGuestCart();
   const [serverItems, setServerItems] = useState<Item[] | null>(null);
 
@@ -63,6 +73,24 @@ export function CartProvider({ signedIn, children }: { signedIn: boolean; childr
     const items = await fetchServerCart();
     if (items) setServerItems(items);
   }, []);
+
+  // Live sync: when this user's cart changes anywhere (the mobile app, another
+  // tab), Supabase Realtime tells us and we re-read the cart from the API.
+  useEffect(() => {
+    if (!signedIn || !userId) return;
+    const supabase = browserSupabase();
+    let unsubscribe: (() => void) | undefined;
+    let cancelled = false;
+    void supabase.auth.getSession().then(({ data }) => {
+      if (cancelled || !data.session) return;
+      void supabase.realtime.setAuth(data.session.access_token);
+      unsubscribe = subscribeToCartChanges(supabase, userId, () => void load());
+    });
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
+  }, [signedIn, userId, load]);
 
   useEffect(() => {
     if (!signedIn) return;

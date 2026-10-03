@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Coffee Shop API
-  version: 0.4.0
+  version: 0.5.0
   description: |
     Endpoints are added phase by phase — see plan.md §3.
     Errors use RFC 9457 Problem Details (`application/problem+json`).
@@ -222,6 +222,11 @@ paths:
               properties:
                 paymentMethod: { type: string, enum: [card, cash] }
                 delivery: { $ref: "#/components/schemas/Delivery" }
+                returnTo:
+                  type: string
+                  enum: [web, app]
+                  default: web
+                  description: Where Paystack sends card payers afterwards. `app` lands on /checkout/app-return ("return to the app"); the mobile app then confirms the payment via the verify endpoint.
       responses:
         "413": { $ref: "#/components/responses/PayloadTooLarge" }
         "201":

@@ -18,6 +18,10 @@ export const createOrderBody = z
   .object({
     paymentMethod: z.enum(["card", "cash"], { error: 'must be "card" or "cash"' }),
     delivery: deliverySchema,
+    // Where Paystack sends the payer afterwards. "app" lands on a plain page that
+    // says to return to the mobile app (which checks the payment itself), instead
+    // of the web processing page, which needs a web session the app doesn't have.
+    returnTo: z.enum(["web", "app"], { error: 'must be "web" or "app"' }).default("web"),
   })
   .strict();
 

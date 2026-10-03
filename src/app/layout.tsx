@@ -24,7 +24,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   return (
     <html lang="en" className={`${jost.variable} ${nunitoSans.variable} ${scriptLogo.variable}`}>
       <body className="flex min-h-dvh flex-col antialiased">
-        <CartProvider signedIn={user !== null}>
+        <CartProvider signedIn={user !== null} userId={user?.id ?? null}>
           <SiteHeader user={user} />
           <main className="flex-1">{children}</main>
           <SiteFooter />
