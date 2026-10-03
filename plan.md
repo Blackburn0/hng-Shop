@@ -319,8 +319,10 @@ Same API, same Google login, cart changes on the website show up in the app inst
   - **live sync: a Cappuccino added through the website's API appeared in the app's cart 0.86 s after the save**
 - Note: that local cash test order's confirmation went out through the Gmail fallback to a fake `@example.com` address, so expect one bounce in the Gmail inbox. No further local test orders.
 - [x] **(you)** Supabase Redirect URLs: `exp://**` (Expo Go)
-- [ ] **(you)** Merge the PR, so `/checkout/app-return` and `returnTo` are live (card payments from the app need them)
-- [ ] **(you)** Run the app on your Android phone with Expo Go (`mobile/README.md`), sign in with Google, then add something on the website and watch it appear in the app
+- [x] **(you)** Merged PR #5; production checked: `/checkout/app-return` live, `returnTo` validated, live cart push 44 ms after a save
+- [x] Found on the phone: Google sign-in returned to the website instead of the app. The cause, checked with Supabase's admin generate-link (no email sent): **Supabase refuses redirects to raw IP addresses** (`exp://192.168.1.183:8081/...`) even when they're listed, but accepts tunnel addresses (`exp://<id>.exp.direct/...`). Fix: run Expo with `--tunnel`. `@expo/ngrok` is now a mobile dev dependency (approved), because Expo on Windows couldn't find the global install. The tunnel was checked here: "Tunnel connected / ready".
+- [ ] Optional hardening: narrow Supabase's `exp://**` to `exp://*.exp.direct/**` (`exp://**` also accepts any Expo host; PKCE limits the risk), and remove the two IP-based entries
+- [ ] **(you)** Run the app on your Android phone with Expo Go: `npx expo start --tunnel` (`mobile/README.md`), sign in with Google, then add something on the website and watch it appear in the app
 
 ---
 
