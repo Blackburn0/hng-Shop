@@ -23,6 +23,9 @@ import { colors, radius } from "@/theme";
 
 type Field = keyof Delivery;
 
+// Bundled with the app (no network needed); same file as the website's public/pay-paystack.png.
+const PAYSTACK_LOGO = require("../../../assets/pay-paystack.png");
+
 // Design/Confirmation Page.png (the cart + "Pay By" card), for a phone.
 export default function CartScreen() {
   const { session } = useAuth();
@@ -171,14 +174,14 @@ export default function CartScreen() {
               <Pressable
                 onPress={() => void pay("card")}
                 disabled={paying !== null}
-                style={[styles.payButton, paying && { opacity: 0.7 }]}
+                style={[styles.payButton, styles.paystackButton, paying && { opacity: 0.7 }]}
                 accessibilityRole="button"
-                accessibilityLabel="Pay by card with Paystack"
+                accessibilityLabel="Pay with Paystack: card, bank transfer or USSD"
               >
                 {paying === "card" ? (
-                  <Text style={styles.payBusy}>Opening Paystack…</Text>
+                  <Text style={[styles.payBusy, { color: colors.paper }]}>Opening Paystack…</Text>
                 ) : (
-                  <Image source={{ uri: absoluteUrl("/pay-visa.png") }} style={{ width: 87, height: 55 }} resizeMode="contain" />
+                  <Image source={PAYSTACK_LOGO} style={{ width: 97, height: 62 }} resizeMode="contain" />
                 )}
               </Pressable>
               <Pressable
@@ -235,6 +238,8 @@ const styles = StyleSheet.create({
   payCard: { marginTop: 28, backgroundColor: colors.espresso, borderRadius: 36, padding: 24, gap: 16 },
   payTitle: { color: colors.paper, fontSize: 34, fontWeight: "800", textAlign: "center" },
   payButton: { height: 64, borderRadius: 20, backgroundColor: colors.paper, alignItems: "center", justifyContent: "center" },
+  // Paystack's navy, the background of the logo image, so it sits seamlessly.
+  paystackButton: { backgroundColor: "#011B33" },
   payBusy: { color: colors.espresso, fontSize: 17, fontWeight: "700" },
   payNote: { color: "rgba(255,255,255,0.8)", fontSize: 13, textAlign: "center" },
   payError: { color: colors.paper, backgroundColor: "rgba(255,255,255,0.15)", padding: 12, borderRadius: 14, textAlign: "center" },
