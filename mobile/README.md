@@ -17,14 +17,20 @@ owner, and the app re-reads `GET /api/v1/cart` (`src/lib/cart-sync.ts`).
    cd mobile
    npm install
    cp .env.example .env.local   # then fill in EXPO_PUBLIC_SUPABASE_ANON_KEY
-   npx expo start
+   npx expo start --tunnel
    ```
-3. Phone and computer on the **same Wi-Fi**: in Expo Go, tap **Scan QR code** and
-   scan the QR code in the terminal. (Different networks or a strict router? Use
-   `npx expo start --tunnel` instead.)
+3. In Expo Go, tap **Scan QR code** and scan the QR code in the terminal. (The
+   tunnel also works when the phone and computer are on different networks.)
 4. Supabase → Authentication → URL Configuration → Redirect URLs must include
-   `exp://**` (Expo Go's sign-in return address; the Account tab shows the exact
-   one in development).
+   `exp://*.exp.direct/**` or `exp://**`, Expo Go's sign-in return address in
+   tunnel mode. The Account tab shows the exact one in development.
+
+**Why `--tunnel`:** without it, Expo Go's return address contains your
+computer's IP (`exp://192.168.x.x:8081/...`), and Supabase refuses redirects to
+raw IP addresses, even when they're listed. Google sign-in then ends on the
+website instead of returning to the app. Tunnel addresses
+(`exp://<id>.exp.direct/...`) are accepted. `@expo/ngrok` is a dev dependency
+here because Expo on Windows doesn't find a globally installed copy.
 
 ## Screens
 
