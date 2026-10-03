@@ -11,7 +11,7 @@ A small online coffee shop. Customers browse coffee and pastries, add items to a
 | # | Topic | Decision |
 | --- | --- | --- |
 | D1 | Currency | ✅ **NGN (₦)**. Prices are stored as integer kobo (for example, ₦4,500.00 is stored as `450000`). The "RM" in the designs becomes ₦. |
-| D2 | "Pay By" options | ✅ **Visa → Paystack checkout** (card, bank transfer, USSD). **Cash → cash on delivery.** The Touch 'n Go button is removed. |
+| D2 | "Pay By" options | ✅ **Paystack button → Paystack checkout** (card, bank transfer, USSD; the design's Visa logo was swapped for Paystack's in Phase 11). **Cash → cash on delivery.** The Touch 'n Go button is removed. |
 | D3 | Delivery details | Default: a small **Delivery details** card (name, phone, address) on the checkout page, styled like the "Pay By" card. |
 | D4 | When to sign in | Default: anyone can browse and use the cart; **Google sign-in is required at checkout**. |
 | D5 | Fonts | Default: **Jost** (like Futura), **Nunito Sans** (like Avenir) and **Nothing You Could Do** (script logo). |
@@ -297,9 +297,9 @@ Everything works for anyone. Emails go through Mailgun first. When the sandbox r
 **Optional follow-ups:**
 - Check API responses against the OpenAPI schema in the tests (needs a validator package, so approval)
 - Remove the unused `form-data` dependency (approval)
-- Delete the old local `feat/*` branches (already in `main`)
+- [x] Delete the old local `feat/*` branches (already in `main`). Done after Phase 11: every local branch except `main` removed (remote branches left as they are).
 
-### Phase 11 — Mobile app with a live cart
+### Phase 11 — Mobile app with a live cart ✅
 Same API, same Google login, cart changes on the website show up in the app instantly (and the other way round). Details: `mobile/README.md`.
 - [x] Approved: Expo (SDK 57) app in `mobile/`, plus Supabase Realtime for the live cart. Packages installed with `npx expo install`, so their versions match SDK 57.
 - [x] Migration `20261003090000_cart_versions_realtime.sql` (+ rollback):
@@ -322,7 +322,17 @@ Same API, same Google login, cart changes on the website show up in the app inst
 - [x] **(you)** Merged PR #5; production checked: `/checkout/app-return` live, `returnTo` validated, live cart push 44 ms after a save
 - [x] Found on the phone: Google sign-in returned to the website instead of the app. The cause, checked with Supabase's admin generate-link (no email sent): **Supabase refuses redirects to raw IP addresses** (`exp://192.168.1.183:8081/...`) even when they're listed, but accepts tunnel addresses (`exp://<id>.exp.direct/...`). Fix: run Expo with `--tunnel`. `@expo/ngrok` is now a mobile dev dependency (approved), because Expo on Windows couldn't find the global install. The tunnel was checked here: "Tunnel connected / ready".
 - [ ] Optional hardening: narrow Supabase's `exp://**` to `exp://*.exp.direct/**` (`exp://**` also accepts any Expo host; PKCE limits the risk), and remove the two IP-based entries
-- [ ] **(you)** Run the app on your Android phone with Expo Go: `npx expo start --tunnel` (`mobile/README.md`), sign in with Google, then add something on the website and watch it appear in the app
+- [x] **(you)** Ran the app on an Android phone with Expo Go (`npx expo start --tunnel`, `mobile/README.md`): Google sign-in works, and cart changes sync both ways. It took "a few seconds" at first, which led to the change below.
+- [x] Faster sync (PR #8): the push now carries the cart, so clients update straight from it instead of re-reading `GET /api/v1/cart`
+  - Why it was slow, measured on production from Nigeria: saving the change ~0.9 s, the push 0.04 s, then re-reading the cart ~1.0 s. Each request to Vercel (`iad1`, Washington D.C.) costs ~0.5 s of network time.
+  - Migration `20261003120000_cart_versions_snapshot.sql` (+ rollback): `cart_versions.items` holds `[{productId, quantity}]`, filled by the same trigger. PGlite 9/9. **(you)** Applied in the SQL Editor.
+  - Clients (`src/lib/cart-sync.ts`, copied to `mobile/`) apply a pushed cart using product details they already have, and ignore pushes older than what they show. A push without items, or with an unknown product, falls back to re-reading the cart.
+  - `GET /api/v1/cart` returns the cart's `version` (OpenAPI v0.6.0)
+  - Tests: `cart-sync.test.ts` now 22 tests, including real Realtime (the pushed items, removals, the `GET` version matches the push). Full suite 275/275, 90.7% line, 89.1% branch coverage.
+  - On production: the other device shows the change **~1.1–2.0 s after the tap**, as soon as the save finishes, sometimes before the saving device hears back. **(you)** Confirmed faster on the phone.
+  - Not done (declined): checking sign-in without a call to Supabase (`getClaims`), and moving the Vercel functions closer to Nigeria. Either would cut the ~1 s save.
+- [x] Paystack button (PR #7): the Visa logo on the website's checkout and the app's cart is now Paystack's logo on its navy (`#011B33`), cropped from `Design/paystack-images.png`. The app bundles its own copy. **(you)** Confirmed on the web and the phone.
+- Note: Expo Go runs the code checked out in this folder, not production. After merging, switch the folder to `main` before retesting on the phone.
 
 ---
 
@@ -352,6 +362,8 @@ Nothing required. Every part of the shop works for anyone with the link:
 | Cash on delivery | ✅ |
 | Confirmation email to any address | ✅ via the Gmail fallback |
 | Privacy policy | ✅ `/privacy` |
+| Android app (Expo Go), same login | ✅ |
+| Live cart sync, web ↔ app | ✅ ~1–2 s after a tap |
 
 Optional:
 1. Confirm sign-in with an account that isn't a test user (Phase 10).
