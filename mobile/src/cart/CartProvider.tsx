@@ -2,12 +2,34 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { AppState } from "react-native";
 import { useAuth } from "@/auth/AuthProvider";
 import { ApiError, type Cart, type Product } from "@/lib/api";
-import { subscribeToCartChanges, type CartSyncStatus } from "@/lib/cart-sync";
+import { resolveSnapshot, subscribeToCartChanges, type CartSnapshot, type CartSyncStatus } from "@/lib/cart-sync";
 import { api } from "@/lib/shop-api";
 import { supabase } from "@/lib/supabase";
 
 const MAX_QUANTITY = 99;
-const EMPTY: Cart = { items: [], itemCount: 0, subtotalMinor: 0, currency: "NGN" };
+const EMPTY: Cart = { items: [], itemCount: 0, subtotalMinor: 0, currency: "NGN", version: 0 };
+
+/** Build the screen's cart from a pushed snapshot plus known products (null if a product is unknown). */
+function cartFromSnapshot(snapshot: CartSnapshot, catalog: ReadonlyMap<string, Product>): Cart | null {
+  const lines = resolveSnapshot(snapshot, catalog);
+  if (!lines) return null;
+  const items = lines.map(({ product: p, quantity }) => ({
+    productId: p.id,
+    slug: p.slug,
+    name: p.name,
+    imageUrl: p.imageUrl,
+    unitPriceMinor: p.priceMinor,
+    quantity,
+    lineTotalMinor: p.priceMinor * quantity,
+  }));
+  return {
+    items,
+    itemCount: items.reduce((n, i) => n + i.quantity, 0),
+    subtotalMinor: items.reduce((n, i) => n + i.lineTotalMinor, 0),
+    currency: "NGN",
+    version: snapshot.version,
+  };
+}
 
 type CartApi = {
   cart: Cart;
@@ -26,7 +48,8 @@ const CartContext = createContext<CartApi | null>(null);
 
 /**
  * The signed-in user's cart, the same one the website shows. Reads and writes
- * go through /api/v1/cart; Supabase Realtime tells us when it changed elsewhere.
+ * go through /api/v1/cart; Supabase Realtime pushes the new cart when it changes
+ * elsewhere, and we show it straight away.
  */
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const { session } = useAuth();
@@ -36,13 +59,22 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [sync, setSync] = useState<CartSyncStatus | "signed-out">("signed-out");
   const [error, setError] = useState<string | null>(null);
   const latest = useRef(0); // ignore responses that arrive after a newer request
+  const shownVersion = useRef(-1); // cart_versions.version on screen; never go backwards
+  const catalog = useRef<Map<string, Product>>(new Map());
+
+  /** Show a cart from the API, unless something newer is already on screen. */
+  const accept = useCallback((next: Cart) => {
+    if (next.version < shownVersion.current) return;
+    shownVersion.current = next.version;
+    setCart(next);
+  }, []);
 
   const load = useCallback(async () => {
     const ticket = ++latest.current;
     try {
       const next = await api.cart();
       if (ticket === latest.current) {
-        setCart(next);
+        accept(next);
         setError(null);
       }
     } catch (err) {
@@ -50,19 +82,46 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     } finally {
       if (ticket === latest.current) setReady(true);
     }
-  }, []);
+  }, [accept]);
+
+  /** A pushed cart: show it at once if it is newer and all its products are known. */
+  const applySnapshot = useCallback(
+    (snapshot: CartSnapshot) => {
+      if (snapshot.version <= shownVersion.current) return;
+      const next = cartFromSnapshot(snapshot, catalog.current);
+      if (!next) return void load(); // a product we don't know yet: ask the API
+      latest.current++; // any slower API read in flight is now out of date
+      shownVersion.current = next.version;
+      setCart(next);
+      setReady(true);
+    },
+    [load],
+  );
 
   // Sign-in / sign-out: load the cart and connect the live signal.
   useEffect(() => {
     if (!userId || !session) {
+      shownVersion.current = -1;
       setCart(EMPTY);
       setReady(false);
       setSync("signed-out");
       return;
     }
     void load();
+    // Product details for showing pushed carts without asking the API.
+    void api
+      .products()
+      .then((page) => {
+        catalog.current = new Map(page.data.map((p) => [p.id, p]));
+      })
+      .catch(() => {}); // without it, pushes just fall back to re-reading the cart
     void supabase.realtime.setAuth(session.access_token);
-    const unsubscribe = subscribeToCartChanges(supabase, userId, () => void load(), { onStatus: setSync });
+    const unsubscribe = subscribeToCartChanges(
+      supabase,
+      userId,
+      { onSnapshot: applySnapshot, onResync: () => void load() },
+      { onStatus: setSync },
+    );
     // Back from the background: re-read in case the socket was asleep.
     const appState = AppState.addEventListener("change", (state) => {
       if (state === "active") void load();
@@ -72,7 +131,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       appState.remove();
     };
     // Depends on the user, not the token: supabase-js re-authenticates the socket on token refresh.
-  }, [userId, load]);
+  }, [userId, load, applySnapshot]);
 
   const apply = useCallback(
     async (change: () => Promise<Cart | void>, optimistic: (c: Cart) => Cart) => {
@@ -80,7 +139,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       setCart((c) => optimistic(c));
       try {
         const next = await change();
-        if (next) setCart(next);
+        if (next) accept(next);
         else await load();
         setError(null);
       } catch (err) {
@@ -88,7 +147,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         await load(); // put back the server's version
       }
     },
-    [load],
+    [load, accept],
   );
 
   const value = useMemo<CartApi>(() => {

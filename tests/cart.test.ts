@@ -103,7 +103,8 @@ describe("GET /api/v1/cart", () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get("cache-control")).toBe("private, no-store");
-    expect(await res.json()).toEqual({ items: [], itemCount: 0, subtotalMinor: 0, currency: "NGN" });
+    // version 0: this user's cart has never changed (cart_versions has no row yet).
+    expect(await res.json()).toEqual({ items: [], itemCount: 0, subtotalMinor: 0, currency: "NGN", version: 0 });
   });
 
   it("hides items whose product has been deactivated", async () => {

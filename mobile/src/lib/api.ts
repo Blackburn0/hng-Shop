@@ -23,7 +23,14 @@ export type CartItem = {
   lineTotalMinor: number;
 };
 
-export type Cart = { items: CartItem[]; itemCount: number; subtotalMinor: number; currency: string };
+export type Cart = {
+  items: CartItem[];
+  itemCount: number;
+  subtotalMinor: number;
+  currency: string;
+  /** cart_versions.version; live-sync pushes at or below it are already shown. */
+  version: number;
+};
 
 export type OrderStatus = "pending_payment" | "paid" | "failed" | "cancelled" | "cash_on_delivery";
 
