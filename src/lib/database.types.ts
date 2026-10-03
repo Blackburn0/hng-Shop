@@ -84,6 +84,12 @@ export type Database = {
           },
         ];
       };
+      cart_versions: {
+        Row: { user_id: string; version: number; updated_at: string };
+        Insert: { user_id: string; version?: number; updated_at?: string };
+        Update: Partial<Database["public"]["Tables"]["cart_versions"]["Insert"]>;
+        Relationships: [];
+      };
       orders: {
         Row: {
           id: string;

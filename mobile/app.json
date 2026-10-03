@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "Coffee Shop",
+    "slug": "coffee-shop",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.blackburn0.coffeeshop"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#351C0F",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.blackburn0.coffeeshop"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "output": "single",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-status-bar",
+      "expo-web-browser",
+      "expo-sqlite",
+      "expo-font"
+    ],
+    "scheme": "coffeeshop",
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

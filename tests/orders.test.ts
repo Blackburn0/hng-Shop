@@ -122,6 +122,30 @@ describe("POST /api/v1/orders", () => {
     expect(await cartRows(alice)).toEqual([{ product_id: americano.id, quantity: 2 }]);
   });
 
+  it('sends app payers back to /checkout/app-return when returnTo is "app"', async () => {
+    const res = await post(alice, { paymentMethod: "card", delivery, returnTo: "app" });
+
+    expect(res.status).toBe(201);
+    expect(paystack.initializeCalls[0]).toMatchObject({
+      callback_url: `${process.env.NEXT_PUBLIC_SITE_URL}/checkout/app-return`,
+    });
+  });
+
+  it('keeps the web processing page when returnTo is "web" (the default)', async () => {
+    await post(alice, { paymentMethod: "card", delivery, returnTo: "web" });
+
+    expect(paystack.initializeCalls[0]).toMatchObject({
+      callback_url: `${process.env.NEXT_PUBLIC_SITE_URL}/checkout/processing`,
+    });
+  });
+
+  it("returns 422 for an unknown returnTo", async () => {
+    const problem = await expectProblem(await post(alice, { paymentMethod: "card", delivery, returnTo: "ios" }), 422, PATH);
+
+    expect(problem.errors?.map((e) => e.field)).toContain("returnTo");
+    expect(paystack.initializeCalls).toEqual([]);
+  });
+
   it("returns 502 and marks the order failed when Paystack is down, keeping the cart", async () => {
     paystack.initializeFails = true;
 

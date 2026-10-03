@@ -77,7 +77,10 @@ export const POST = route({ rateLimit: { bucket: "orders.create", ...LIMITS.chec
       email,
       amountMinor: order.totalMinor,
       reference: reference!,
-      callbackUrl: new URL("/checkout/processing", publicEnv().NEXT_PUBLIC_SITE_URL).toString(),
+      callbackUrl: new URL(
+        body.data.returnTo === "app" ? "/checkout/app-return" : "/checkout/processing",
+        publicEnv().NEXT_PUBLIC_SITE_URL,
+      ).toString(),
       orderId: order.id,
     });
     return Response.json(

@@ -299,6 +299,29 @@ Everything works for anyone. Emails go through Mailgun first. When the sandbox r
 - Remove the unused `form-data` dependency (approval)
 - Delete the old local `feat/*` branches (already in `main`)
 
+### Phase 11 — Mobile app with a live cart
+Same API, same Google login, cart changes on the website show up in the app instantly (and the other way round). Details: `mobile/README.md`.
+- [x] Approved: Expo (SDK 57) app in `mobile/`, plus Supabase Realtime for the live cart. Packages installed with `npx expo install`, so their versions match SDK 57.
+- [x] Migration `20261003090000_cart_versions_realtime.sql` (+ rollback):
+  - `cart_versions` table, bumped by a trigger on every `cart_items` change and added to the `supabase_realtime` publication
+  - RLS: each user can only read their own row. Realtime can't filter DELETE events per user on `cart_items`, which is why the signal lives in a separate table.
+  - PGlite: 17/17 checks pass. **(you)** Applied in the SQL Editor.
+- [x] Website: `CartProvider` listens for the same signal (`src/lib/cart-sync.ts`) and re-reads the cart when the app changes it
+- [x] API: `POST /api/v1/orders` takes an optional `returnTo: "app"`, which sends Paystack's return to `/checkout/app-return` ("go back to the app"). Covered by tests; OpenAPI v0.5.0.
+- [x] App screens: Shop, Cart (live badge, quantity, delivery details, pay by card or cash), Orders, order details, the payment-confirmation screen (Loading design), and Account (Google sign-in)
+- [x] Tests:
+  - `tests/cart-sync.test.ts`, 7 tests, including **real Realtime**: a change reaches its owner within 5 s and nobody else; removing an item is pushed too
+  - `tests/mobile-api.test.ts`, 16 tests, including a **contract test**: the app's API client against the website's real route handlers and database
+  - `orders.test.ts`: +3 tests for `returnTo`
+- [x] App checks: `tsc` clean, `expo-doctor` 21/21, Android bundle exports (1,371 modules)
+- [x] Run in a browser at phone size (Expo web, served on the same address as the API):
+  - shop, sign-in (temporary test user), add to cart, cart screen, cash checkout → order #1965AF52, orders tab
+  - **live sync: a Cappuccino added through the website's API appeared in the app's cart 0.86 s after the save**
+- Note: that local cash test order's confirmation went out through the Gmail fallback to a fake `@example.com` address, so expect one bounce in the Gmail inbox. No further local test orders.
+- [x] **(you)** Supabase Redirect URLs: `exp://**` (Expo Go)
+- [ ] **(you)** Merge the PR, so `/checkout/app-return` and `returnTo` are live (card payments from the app need them)
+- [ ] **(you)** Run the app on your Android phone with Expo Go (`mobile/README.md`), sign in with Google, then add something on the website and watch it appear in the app
+
 ---
 
 ## 6. Setup checklist (you)
