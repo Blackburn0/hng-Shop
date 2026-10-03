@@ -15,10 +15,13 @@ type Status = { kind: "idle" } | { kind: "submitting"; method: "card" | "cash" }
 const input =
   "mt-1 w-full rounded-2xl border-2 border-espresso/40 bg-paper px-4 py-3 text-lg outline-none " +
   "focus:border-espresso aria-invalid:border-red-700";
-const payButton =
-  "flex h-[4.3rem] w-full items-center justify-center rounded-[1.25rem] bg-paper transition " +
+const payButtonBase =
+  "flex h-[4.3rem] w-full items-center justify-center rounded-[1.25rem] transition " +
   "hover:ring-4 hover:ring-paper/40 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-paper " +
   "disabled:cursor-wait disabled:opacity-70";
+const payButton = `${payButtonBase} bg-paper`;
+// Paystack's own navy (#011B33, the background of public/pay-paystack.png) so the logo sits seamlessly.
+const paystackButton = `${payButtonBase} bg-[#011B33]`;
 
 export function CheckoutView({ signedIn, defaultName }: { signedIn: boolean; defaultName: string }) {
   const cart = useCart();
@@ -211,13 +214,13 @@ export function CheckoutView({ signedIn, defaultName }: { signedIn: boolean; def
 
             {signedIn ? (
               <div className="mt-11 flex flex-col gap-9">
-                <button type="submit" name="paymentMethod" value="card" className={payButton} disabled={busy}>
+                <button type="submit" name="paymentMethod" value="card" className={paystackButton} disabled={busy}>
                   {status.kind === "submitting" && status.method === "card" ? (
-                    <span className="text-lg font-bold text-espresso">Opening Paystack…</span>
+                    <span className="text-lg font-bold text-paper">Opening Paystack…</span>
                   ) : (
                     <>
-                      <Image src="/pay-visa.png" alt="" width={87} height={55} />
-                      <span className="sr-only">Pay by card with Paystack</span>
+                      <Image src="/pay-paystack.png" alt="" width={97} height={62} />
+                      <span className="sr-only">Pay with Paystack (card, bank transfer or USSD)</span>
                     </>
                   )}
                 </button>
