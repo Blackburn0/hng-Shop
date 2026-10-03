@@ -30,7 +30,17 @@ export type CartItem = {
   lineTotalMinor: number;
 };
 
-export type Cart = { items: CartItem[]; itemCount: number; subtotalMinor: number; currency: "NGN" };
+export type Cart = {
+  items: CartItem[];
+  itemCount: number;
+  subtotalMinor: number;
+  currency: "NGN";
+  /**
+   * The cart's cart_versions.version (0 before its first change). Live-sync
+   * clients ignore Realtime pushes with a version at or below this one.
+   */
+  version: number;
+};
 
 type Row = {
   product_id: string;
@@ -40,12 +50,19 @@ type Row = {
 
 /** The caller's cart (db must act as the user). Inactive products are left out. */
 export async function getCart(db: Db, userId: string): Promise<Cart> {
-  const { data, error } = await db
-    .from("cart_items")
-    .select("product_id, quantity, products (slug, name, image_url, price_minor, is_active)")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: true });
+  // Both reads run at once, so the version adds no extra round trip.
+  const [{ data, error }, versionRead] = await Promise.all([
+    db
+      .from("cart_items")
+      .select("product_id, quantity, products (slug, name, image_url, price_minor, is_active)")
+      .eq("user_id", userId)
+      // Same order as the Realtime snapshot (bump_cart_version).
+      .order("created_at", { ascending: true })
+      .order("product_id", { ascending: true }),
+    db.from("cart_versions").select("version").eq("user_id", userId).maybeSingle(),
+  ]);
   if (error) throw error;
+  const version = Number(versionRead.data?.version ?? 0);
 
   const items = (data as unknown as Row[])
     .filter((r) => r.products?.is_active)
@@ -67,6 +84,7 @@ export async function getCart(db: Db, userId: string): Promise<Cart> {
     itemCount: items.reduce((n, i) => n + i.quantity, 0),
     subtotalMinor: items.reduce((n, i) => n + i.lineTotalMinor, 0),
     currency: "NGN",
+    version,
   };
 }
 

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Coffee Shop API
-  version: 0.5.0
+  version: 0.6.0
   description: |
     Endpoints are added phase by phase — see plan.md §3.
     Errors use RFC 9457 Problem Details (`application/problem+json`).
@@ -424,12 +424,16 @@ components:
         lineTotalMinor: { type: integer }
     Cart:
       type: object
-      required: [items, itemCount, subtotalMinor, currency]
+      required: [items, itemCount, subtotalMinor, currency, version]
       properties:
         items: { type: array, items: { $ref: "#/components/schemas/CartItem" } }
         itemCount: { type: integer }
         subtotalMinor: { type: integer }
         currency: { type: string, const: NGN }
+        version:
+          type: integer
+          minimum: 0
+          description: The cart's live-sync version (0 before its first change). Realtime pushes of public.cart_versions carry the same number plus a snapshot of the items; clients ignore pushes at or below the version they show.
     Delivery:
       type: object
       additionalProperties: false
