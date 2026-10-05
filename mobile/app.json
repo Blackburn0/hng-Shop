@@ -35,6 +35,13 @@
     "scheme": "coffeeshop",
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "154ac0ff-2c66-4248-bcdf-36b4dc504a77"
+      }
+    },
+    "owner": "hamzatade"
   }
 }
