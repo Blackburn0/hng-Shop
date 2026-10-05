@@ -6,10 +6,36 @@ Expo (React Native, SDK 57) app for the same shop as the website. It uses the
 
 **Live cart:** anything added on the website appears in the app's cart within
 about a second (and the other way round). Every cart change bumps the user's row
-in `public.cart_versions`; Supabase Realtime pushes that only to the cart's
-owner, and the app re-reads `GET /api/v1/cart` (`src/lib/cart-sync.ts`).
+in `public.cart_versions` (with a snapshot of the items); Supabase Realtime
+pushes that only to the cart's owner, and the app shows the pushed cart straight
+away, re-reading `GET /api/v1/cart` only when it can't (`src/lib/cart-sync.ts`).
 
-## Run it on your Android phone (Expo Go)
+## Install the APK
+
+Built with EAS (`eas.json`, profile `preview`); talks to the live website, so no
+computer is needed. Download the APK on the phone, allow "install unknown apps"
+for the browser if asked, and open **Coffee Shop**.
+
+To build a new one (Expo account `hamzatade`, project `coffee-shop`):
+
+```bash
+npm install -g eas-cli
+eas login
+eas build -p android --profile preview   # prints a link to the .apk
+```
+
+- `EXPO_PUBLIC_API_URL` and `EXPO_PUBLIC_SUPABASE_URL` come from `eas.json`;
+  `EXPO_PUBLIC_SUPABASE_ANON_KEY` from the EAS `preview` environment
+  (`eas env:create`). `.env.local` is git-ignored, so EAS never sees it.
+- Supabase → Redirect URLs must include `coffeeshop://**`: the installed app
+  returns from Google sign-in to `coffeeshop://auth/callback`.
+- The signing keystore is kept by Expo (generated on the first build); later
+  builds reuse it, so they install over the previous version.
+- If `eas` fails with `ECONNRESET`, the network's IPv6 route to Expo is flaky.
+  In PowerShell, `$env:NODE_OPTIONS="--dns-result-order=ipv4first"` first.
+- Free builds wait in a queue (the first one waited ~1h50m, then built in ~20 min).
+
+## Run it from source on your Android phone (Expo Go)
 
 1. Install **Expo Go** from the Play Store.
 2. On your computer:

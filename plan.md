@@ -333,6 +333,10 @@ Same API, same Google login, cart changes on the website show up in the app inst
   - Not done (declined): checking sign-in without a call to Supabase (`getClaims`), and moving the Vercel functions closer to Nigeria. Either would cut the ~1 s save.
 - [x] Paystack button (PR #7): the Visa logo on the website's checkout and the app's cart is now Paystack's logo on its navy (`#011B33`), cropped from `Design/paystack-images.png`. The app bundles its own copy. **(you)** Confirmed on the web and the phone.
 - Note: Expo Go runs the code checked out in this folder, not production. After merging, switch the folder to `main` before retesting on the phone.
+- [x] Installable APK for the submission:
+  - Built with EAS (`mobile/eas.json`, profile `preview`; Expo project `@hamzatade/coffee-shop`). The anon key comes from the EAS `preview` environment.
+  - **(you)** Added `coffeeshop://**` to Supabase's Redirect URLs.
+  - **(you)** Installed it on the phone: sign-in works. Build steps are in `mobile/README.md`.
 
 ---
 

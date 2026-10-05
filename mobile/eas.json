@@ -1,0 +1,19 @@
+{
+  "cli": {
+    "version": ">= 24.0.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "preview": {
+      "distribution": "internal",
+      "environment": "preview",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://hng-shop-oztn.vercel.app",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://rnsrxyjvyvyugbplcxbu.supabase.co"
+      }
+    }
+  }
+}
